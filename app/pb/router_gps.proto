@@ -1,0 +1,39 @@
+syntax = "proto2";
+
+package proto_router;
+
+import "IdentityMsg.proto";
+
+message GPSReq 
+{
+    required IdentityMsg Iden = 1; // 身份验证
+    repeated GPS GPSInfo = 2; // gps信息
+}
+
+message Satellite 
+{
+    required int32 ID = 1;                      // 卫星ID
+    optional sint32 Elevation = 2 [default=-1]; // 仰角: 度, -1表示未知
+    optional sint32 Azimuth = 3 [default=-1];   // 方位角: 度, -1表示未知
+    optional sint32 SNR = 4 [default=-1];       // 信噪比, -1表示未知
+    optional int32 Used = 5 [default=0];        // 是否用于定位: 0 - 否, 1 - 是
+    optional string Type = 6 [default=""];      // 卫星类型: BD - 北斗, GP - GPS, GL - GLONASS, GN - 多系统
+}
+message GPS 
+{
+    optional uint32 Timestamp = 1 [default=0];          // 定位时间, unix时间戳
+    optional sint32 Latitude = 2 [default=2000000000];  // 纬度: 度, 精确到小数点后第7位, 定位失败为200
+    optional sint32 Longitude = 3 [default=2000000000]; // 经度: 度, 精确到小数点后第7位, 定位失败为200
+    optional sint32 Altitude = 4 [default=0];           // 海拔高度: 米, 精确到小数点后2位
+    optional int32 Quality = 5 [default=0];             // 定位质量: 0 - 无定位, 1 - 普通定位, 2 - 差分定位, 6 - 粗略定位
+    optional int32 Dimension = 6 [default=0];           // 定位模式: 2 - 2D,  3 - 3D
+    optional int32 PDOP = 7 [default=0];                // 位置精确因子: 精确到小数点后2位
+    optional int32 HDOP = 8 [default=0];                // 水平精确因子: 精确到小数点后2位
+    optional int32 VDOP = 9 [default=0];                // 垂直精确因子: 精确到小数点后2位
+    optional int32 UsedStar = 10 [default=0];           // 用于定位的卫星数
+    optional int32 ViewStar = 11 [default=0];           // 发现的卫星数
+    optional int32 Horizontal = 14 [default=0];         // 水平定位精确: 米, 精确到小数点后1位
+    optional int32 Vertical = 15 [default=0];           // 垂直定位精确: 米, 精确到小数点后1位
+    optional int32 FixTime = 16 [default=0];            // 定位耗时: 秒
+    optional Satellite SatelliteInfo = 17;              // 卫星信息
+}

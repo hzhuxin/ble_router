@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+message DownloadReq {
+    required IdentityMsg Iden = 1;
+    optional string FileId = 2 [default=""];            // firmware id
+    optional int32 Begin = 3 [default=0];               // 固件开始位置
+    optional int32 Length = 4 [default=1400];           // 回传固件长度限制
+}
+
+message DownloadRsp {
+    required IdentityMsg Iden = 1;
+    optional int32 Total = 2 [default=0];               // 固件总长度
+    optional int32 Begin = 3 [default=0];               // 固件开始位置
+    optional int32 Length = 4 [default=0];              // 回传固件的长度
+    optional bytes Data = 5 [default=""];               // 固件数据
+}
+

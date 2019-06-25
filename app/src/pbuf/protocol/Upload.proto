@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+import "Behavior.proto";
+import "Cellular.proto";
+import "Status.proto";
+import "Env.proto";
+import "GPS.proto";
+
+message UploadReq {
+    required IdentityMsg Iden = 1; // 身份验证
+    repeated Env EnvInfo = 2; // 环境数据
+    repeated Behavior BehaviorInfo = 3; // 行为数据
+    repeated GPS GPSInfo = 4; // 定位数据
+    repeated Status StatusInfo = 5; // 状态数据
+    repeated Cellular CellularInfo = 6; // 网络信息
+    optional int32 SMS = 10; // 是否短信回传
+}
+

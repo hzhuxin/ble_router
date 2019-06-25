@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+message StatusReq {
+    required IdentityMsg Iden = 1;
+    repeated Status StatusInfo = 2;
+}
+
+message Status {
+    optional uint32 Timestamp = 1 [default=0];
+    optional uint32 StatusType = 2 [default=0];         //138 is mark downloaded setting
+    optional uint32 StatusValue = 3 [default=0];
+    optional uint32 FirmwareVersion = 4 [default=0];
+    optional int32 Voltage = 5 [default=0];
+}
+

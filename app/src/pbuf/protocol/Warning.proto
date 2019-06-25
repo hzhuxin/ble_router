@@ -1,0 +1,34 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+import "GPS.proto";
+import "Env.proto";
+
+enum WarningType {
+	WarningTypeUnknown      		= 1;        // 未知类型报警
+	WarningTypeBoot         		= 2;        // 开机报警
+	WarningTypeLowBattery   		= 3;        // 低电量报警
+	WarningTypeStatic       		= 4;        // 静止报警
+	WarningTypeGeoFenceIn   		= 5;        // 进入围栏报警
+	WarningTypeGeoFenceOut  		= 6;        // 离开围栏报警
+	WarningTypeDeviceRemove       	= 7;        // 拆除设备报警
+	WarningTypeActivityExcess       = 8;        // 运动量过量
+	WarningTypeTemperatureExcess    = 9;        // 温度超标
+	WarningTypeDeviceDestroy       	= 10;        // 开盖报警
+}
+
+// 请求上传报警信息
+message WarningReq {
+    required IdentityMsg Iden = 1;
+    repeated Warning WarningInfo = 2;
+}
+
+message Warning {
+    optional uint32 Timestamp = 1 [default=0];
+    optional WarningType Type = 2 [default=WarningTypeUnknown];
+    optional Env EnvInfo = 5;
+    optional GPS GPSInfo = 6;
+}
+

@@ -1,0 +1,30 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+// 请求读取参数信息
+message ParameterReq {
+    required IdentityMsg Iden = 1;
+}
+
+message Parameter {
+    repeated string ServerHost = 1; // 服务器域名或IP(第一个是主服务器)
+    repeated int32 ServerPort = 2; // 服务器端口(第一个是主服务器)
+
+    repeated string SMSAlarmReceiverList = 3; // 报警短信接收机号码
+    repeated string SMSWakeupWhiteList = 4; // 短信或电话唤醒白名单
+    optional int32 EnvSampleThreshold = 5 [default=0];  // 环境采样门限: 电量低于门限时停止采样, 毫安
+    optional int32 BehaviorSampleThreshold = 6 [default=0]; // 行为采样门限: 电量低于门限时停止采样，毫安
+    optional int32 GPSSampleThreshold = 7 [default=0]; // GPS采样门限: 电量低于门限时停止采样，毫安
+    optional int32 CommunicationThreshold = 8 [default=0];  // 通信门限: 电量低于门限时停止通信，毫安
+    optional int32 EstrusSampleThreshold = 11 [default=0];  // 发情采样门限: 电量低于门限时停止采样，毫安
+    optional int32 EstrusParameterOne = 12 [default=0];  // 发情采样参数, 除以10000
+}
+
+// 读取参数信息回应
+message ParameterRsp {
+    required IdentityMsg Iden = 1;
+    optional Parameter ParameterInfo = 2;
+}

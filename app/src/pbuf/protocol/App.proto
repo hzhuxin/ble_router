@@ -1,0 +1,16 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+message AppReq {
+    required IdentityMsg Iden = 1;
+    optional int32 Command = 2 [default = 0]; // 1 - 激活确认
+}
+
+message AppRsp {
+    required IdentityMsg Iden = 1;
+    optional int32 LinkType = 2 [default=0];  // 1 - 激活, 2 - 升级, 3 - BLE升级, 4 -  Sensor调试
+    optional int32 WorkMode = 3 [default=0];  // 0 - 待定, 1 - 激活, 2 - 不激活
+}

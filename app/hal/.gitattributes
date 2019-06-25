@@ -1,0 +1,36 @@
+# Set the default behavior, in case people don't have core.autocrlf set.
+*         text=auto
+
+# These files are text and should be normalized (convert crlf to lf)
+*.cs      text diff=csharp
+*.xaml    text
+*.csproj  text
+*.sln     text
+*.tt      text
+*.ps1     text
+*.cmd     text
+*.msbuild text
+*.md      text
+*.h       text
+*.c       text
+*.cpp     text
+*.py      text
+
+# These files should be treated as binary
+# (binary is a macro for -text -diff)
+*.png     binary
+*.jepg    binary
+*.bin     binary
+*.exe     binary
+*.msi     binary
+*.zip     binary
+*.hex     binary
+*.lib     binary
+*.so      binary
+*.a       binary
+*.ew[dpw] binary
+*.uvprojx binary
+*.uvoptx  binary
+*.emProject  binary
+*.emSession  binary
+

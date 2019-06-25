@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+message Behavior2Req {
+    required IdentityMsg Iden = 1;
+    repeated Behavior2 BehaviorInfo = 2;
+}
+
+message Behavior2 {
+    optional uint32 Timestamp = 1 [default=0];
+    optional int32 ODBAX = 2 [default=0];            // odbax value in 0.0001g
+    optional int32 ODBAY = 3 [default=0];            // odbay value in 0.0001g
+    optional int32 ODBAZ = 4 [default=0];            // odbaz value in 0.0001g
+    optional int32 MeandlX = 5 [default=0];          // mean(|X(i) - X(i-1)|) in 0.0001g
+    optional int32 MeandlY = 6 [default=0];          // mean(|Y(i) - Y(i-1)|) in 0.0001g
+    optional int32 MeandlZ = 7 [default=0];          // mean(|Z(i) - Z(i-1)|) in 0.0001g
+    optional int32 ODBA = 8 [default=0];             // odba value in 0.0001g
+}

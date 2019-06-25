@@ -1,0 +1,54 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+message CellularReq {
+    required IdentityMsg Iden = 1;
+    repeated Cellular CellularInfo = 2;
+}
+
+message Cell {
+    required int32 CellID = 1; // 基站ID
+    optional int32 Serving = 2 [default=0]; // 0 - 邻近小区, 1 - 服务小区
+    optional int32 Type = 3 [default=0]; // 0 - 未定义, 2 - 2G, 3 - 3G, 4 - 4G
+    optional int32 MCC = 4 [default=0]; // 国家代码
+    optional int32 MNC = 5 [default=0]; // 运营商代码
+    optional int32 BSIC = 6 [default=0]; // 基站代码: 2G
+    optional int32 LAC = 7 [default=0]; // 定位区域码: 2G/3G
+    optional int32 TAC = 8 [default=0]; // 定位区域码: 4G
+    optional int32 ARFCN = 9 [default=0]; // 频点
+    optional sint32 RxLevel = 10 [default=99]; // 接收信号功率(dBm): 2G - RxLevel, 3G - RSCP, 4G - RSRP
+    optional sint32 RxQuality = 11 [default=99]; // 接收信号质量(dBm): 2G - RxQuality, 3G - ECN0, 4G - RSRQ
+    optional sint32 RSSI = 12 [default=99]; // 接收信号强度(dBm)
+    optional int32 PhysCellID = 13 [default=0]; // 物理基站ID: 4G
+}
+
+message Cellular {
+    optional uint32 Timestamp = 1 [default=0]; // 结束时间
+    optional sint32 Latitude = 2 [default=2000000000]; // 纬度: 度, 精度到小数点后第7位
+    optional sint32 Longitude = 3 [default=2000000000]; // 经度: 度, 精度到小数点后第7位
+    repeated Cell CellInfo = 4; // 基站信息
+    // TODO: 以下为诊断信息，内部使用
+    optional uint32 ErrorFlag = 5 [default=0]; // 错误标志
+    optional uint32 ExitFlag = 6 [default=0]; // 退出状态
+    optional int32 TotalTime = 7 [default=0]; // 通信总耗时
+    optional int32 HwtTime = 8 [default=0]; // 硬件测试耗时
+    optional int32 SimTime = 9 [default=0]; // SIM卡检测耗时
+    optional int32 NumTime = 10 [default=0]; // 读电话号码耗时
+    optional int32 RssiTime = 11 [default=0]; // 信号检测耗时
+    optional int32 RegisterTime = 12 [default=0]; // 注网耗时
+    optional int32 AttachTime = 13 [default=0]; // 附着GPRS耗时
+    optional int32 PdpTime = 14 [default=0]; // 激活移动场景耗时
+    optional int32 ConnectionTime = 15 [default=0]; // 连接耗时
+    optional int32 CommunicationTime = 16 [default=0]; // 数传耗时
+    optional int32 SmsTime = 17 [default=0]; // 发短信耗时
+    optional uint32 NetworkOperator = 18 [default=0]; // 运营商代码
+    optional int32 SignalStrength = 19 [default=0]; // 信号强度
+    optional int32 BitErrorRate = 20 [default=0]; // 误码率
+    optional int32 RadioAccessTechnology = 21 [default=0]; // 网络类型
+    optional int32 Temperature = 22 [default=0]; // 内部温度: 摄氏度, 精确到小数点后一位
+    optional int32 BatteryVoltage = 23 [default=0];// 电池电压: 毫伏
+
+}

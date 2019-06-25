@@ -1,0 +1,16 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+message EstrusReq {
+    required IdentityMsg Iden = 1;
+    repeated Estrus EstrusInfo = 2;
+}
+
+message Estrus {
+    optional uint32 Timestamp = 1 [default=0];      // unix timestamp, 只取小时，服务器忽略分钟，秒
+    optional int32 Activity = 2 [default=0];        // 活动百分比, 每小时
+    optional int32 ODBA = 3 [default=0];            // odba, 每小时60个ODBA的平均值
+}

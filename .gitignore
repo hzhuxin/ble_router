@@ -1,0 +1,12 @@
+*.windows
+*.out
+*.hex
+*.map
+*.in
+*.bin
+*.o
+*.a
+*.d
+~
+
+

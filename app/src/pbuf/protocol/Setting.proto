@@ -1,0 +1,54 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+// 请求读取配置信息
+message SettingReq {
+    required IdentityMsg Iden = 1;
+}
+
+message TimeRange {
+    required uint32 Begin = 1; // 开始时间
+    required uint32 End = 2; // 结束时间
+}
+
+message Setting {
+    optional int32 EnvSampleMode = 1 [default=0];	// 环境采样模式: 0 - 关闭, 1 - 定时采样
+    optional int32 EnvSampleInterval = 2 [default=0];	// 环境采样间隔: 秒
+    optional int32 BehaviorSampleMode = 4 [default=0]; // 行为采样模式: 0 - 关闭, 1 - 定时采样
+    optional int32 BehaviorSampleInterval = 5 [default=0];	// 行为采样间隔: 秒
+    optional int32 GPSSampleMode = 7 [default=0];	// GPS采样模式: 0 - 关闭, 1 - 定时采样, 2 - 持续开启(功耗高，不推荐)
+    optional int32 GPSSampleInterval = 8 [default=0];	// GPS采样间隔: 秒
+    optional int32 CommunicationMode = 10 [default=1]; // 通信模式: 0 - 未定义, 1 - 定时上传, 2 - 持续在线(适合eDRX), 3 - 准点回传
+    optional int32 CommunicationInterval = 11 [default=0];	// 通信间隔: 秒
+    optional string CommunicationTimeTable = 12 [default=""];	// 准点回传时间表
+
+    optional int32 ResetDevice = 16 [default=0]; // 复位请求: 0 - 不复位, 1 - 这次通信结束后立即复位
+
+    repeated TimeRange PowerOffTime = 17;// 计划关机时间范围
+    optional int32 PowerOffMode = 18[default=0]; // 0: disable, 1: unix timestamp, 2：每小时从0分开始的秒数，3: 每天从0点开始的秒数， 4：每月从1号0点开始的秒数
+
+    optional int32 OTAFirmwareVersion = 22 [default=0]; // OTA固件版本
+    optional string OTAFirmwareID = 23 [default=""]; // OTA固件标识
+    optional int32 OTAForceUpgrade = 24 [default=0]; // OTA强制执行(丢弃数据，立即升级)
+    optional string OTAServerHost = 25 [default=""]; // OTA服务器域名或地址
+    optional int32 OTAServerPort = 26 [default=0]; // OTA服务器端口
+
+    optional int32 SMSMode = 27 [default=0]; // 短信上传模式: 0 - 关闭, 1 - 定时上传, 2 - 辅助上传(网络通信失败时上传)
+    optional int32 SMSInterval = 28 [default=0]; // 短信上传间隔: 秒
+
+    optional int32 AlarmMode = 29 [default=0]; // 报警模式: 0 - 关闭, 1 - 数传报警, 2 - 短信报警, 3 - 数传+短信
+
+    repeated TimeRange OriginTime = 33;// 原始数据配置的时间范围
+    optional int32 OriginMode = 34[default=0]; // 0: disable, 1: unix timestamp, 2：每小时从0分开始的秒数，2: 每天从0点开始的秒数， 3：每月从1号0点开始的秒数
+    optional int32 EstrusSampleMode = 35 [default=0]; // 发情中间结果模式: 0 - 关闭, 1 - 定时采样
+    optional int32 EstrusSampleInterval = 36 [default=0]; // 发情中间结果间隔: 秒
+}
+
+// 读取配置信息回应
+message SettingRsp {
+    required IdentityMsg Iden = 1;
+    optional Setting SettingInfo = 2;
+}

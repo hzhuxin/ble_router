@@ -1,0 +1,34 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+import "GPS.proto";
+import "Env.proto";
+import "Cellular.proto";
+
+// 服务器(通过短信网关)或手机(上的业务App)发送短信请求设备执行指定动作
+// 发送前必须做Base64编码
+message SMSMsg {
+    required IdentityMsg Iden = 1;
+    optional string ServerHost = 4 [default=""]; // 服务器地址(IP或域名)
+    optional int32 ServerPort = 5 [default=0]; // 服务器端口
+    optional int32 GPSAction = 6 [default=0]; // GPS请求: 0 - 无动作, 1 - 定位一次, 2 - 持续开启
+    optional bool SendSMS = 7 [default=false]; // 发送短信回复
+    optional bool ConnectServer = 8 [default=false]; // 网络回复直到成功
+    optional bool ConnectInterval = 9 [default=false]; // 网络回复尝试间隔
+    optional int32 ConnectTimeout = 10 [default=0]; // 网络回复尝试超时
+    optional bool KeepOnline = 11 [default=false]; // 保持在线
+    optional int32 KeepOnlineTimeout = 12 [default=0]; // 保持在线超时
+}
+
+// 设备通过短信或者数据通道回应短信请求
+// 短信通道发送前必须做Base64编码
+message SMSRply {
+    required IdentityMsg Iden = 1;
+    optional uint32 Timestamp = 2 [default=0]; // 收到短信的时间
+    optional string PeerPhoneNumber = 3 [default=""]; // 发送短信的电话号码
+    optional GPS GPSInfo = 4; // 设备位置信息: 节选, 必填经纬度
+    optional Env EnvInfo = 5; // 设备环境信息: 节选, 必填电池电量
+    optional Cellular CellularInfo = 6; // 基站信息: 节选, 必填信号强度
+}

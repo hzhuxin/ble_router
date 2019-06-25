@@ -1,0 +1,8 @@
+*.o
+*.dSYM
+*.exe
+*~
+*.diff
+.*.swp
+.*.swo
+html/

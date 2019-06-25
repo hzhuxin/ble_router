@@ -1,0 +1,12 @@
+[submodule "app/nrf5_hal"]
+	path = app/nrf5_hal
+	url = https://chenfei-druid@bitbucket.org/druid-hw/nrf5_hal.git
+[submodule "nrf5_sdk"]
+	path = nrf5_sdk
+	url = https://chenfei-druid@bitbucket.org/druid-hw/nrf5_sdk.git
+[submodule "app/nrf5_ble"]
+	path = app/nrf5_ble
+	url = https://chenfei-druid@bitbucket.org/druid-hw/nrf5_ble.git
+[submodule "app/dev"]
+	path = app/dev
+	url = https://chenfei-druid@bitbucket.org/druid-hw/dev.git

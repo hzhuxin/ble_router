@@ -1,0 +1,9 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+message Authenticator {
+    required IdentityMsg Iden = 1;
+}

@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+import "Setting.proto";
+import "Parameter.proto";
+
+message SettingAndParamReq {
+    required IdentityMsg Iden = 1;
+}
+
+message SettingAndParamRsp {
+    required IdentityMsg Iden = 1;
+    required Setting SettingInfo = 2; // 配置信息
+    required Parameter ParameterInfo= 3; // 参数信息
+}

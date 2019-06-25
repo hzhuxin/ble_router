@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+message PingReq {
+    required IdentityMsg Iden = 1;  // 链路测试请求
+}
+
+message PingResp {
+    required IdentityMsg Iden = 1;  // 链路测试请求
+}

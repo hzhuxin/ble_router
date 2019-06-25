@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+package proto_router;
+
+import "IdentityMsg.proto";
+
+enum ExecuteState
+{
+    FAILED = 0;             //操作失败
+    SUCCESSED = 1;          //操作成功
+    WITHOUT = 2;            //无此功能模块
+    INVALID = 3;            //非法操作
+}
+
+message ExecStaRsp
+{
+    required IdentityMsg Iden = 1;
+    required ExecuteState State = 2;
+}

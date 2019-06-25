@@ -1,0 +1,18 @@
+syntax = "proto2"; 
+
+package protocol;
+
+// uuid: 11223344
+// generate token by: crc32("11121223344" + random)
+// make table is: 0x4C11DB7
+
+message IdentityMsg {
+    required uint32 MsgToken = 3; // 鉴权Token: 由DeviceID和16位随机数使用CRC16_CCITT生成, 计算初值是0xFFFF
+    required uint32 MsgIndex = 4; // 消息ID
+    optional string DeviceID = 5 [default=""]; // 设备ID: 设备发送时必填, 服务器发送时可以不填
+    optional uint32 RspCode = 6 [default=0]; // 返回结果状态: 请求包不填, 回应包必填, 0表示执行成功
+}
+// Token生成示例
+// device id: 11223344
+// generate token by: crc16("11121223344" + random(0x1DB7)) = 0x4C11
+// Msg Token is: 0x4C11DB7

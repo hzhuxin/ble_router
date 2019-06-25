@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+enum BehaviorType {
+	BehaviorTypeUnknown         = 0;    // 位置活动
+	BehaviorTypeEat             = 1;    // 吃食
+	BehaviorTypeRumination      = 2;    // 反刍
+	BehaviorTypeActivityWeak    = 3;    // 活跃度微弱
+	BehaviorTypeActivityMid     = 4;    // 活跃度中
+	BehaviorTypeActivityStrong  = 5;    // 活跃度强
+	BehaviorTypeSleep           = 6;    // 睡觉
+	BehaviorTypeWalk            = 7;    // 走路
+}
+
+message BehaviorReq {
+    required IdentityMsg Iden = 1;
+    repeated Behavior BehaviorInfo = 2;
+}
+
+message Behavior {
+    optional uint32 Timestamp = 1 [default=0];      // 行为开始时间
+    optional BehaviorType type = 2 [default=BehaviorTypeUnknown];     // 行为类型
+}

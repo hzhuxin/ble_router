@@ -1,0 +1,20 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+
+message OriginReq {
+    required IdentityMsg Iden = 1;
+    required uint32 Timestamp = 2;                  // 开始时间
+    optional uint32 SamplingFreq = 3 [default=0];       // 采样频率，每秒次数
+    repeated XYZ XYZInfo = 4;
+}
+
+message XYZ {
+    optional sint32 X = 1;
+    optional sint32 Y = 2;
+    optional sint32 Z = 3;
+}
+

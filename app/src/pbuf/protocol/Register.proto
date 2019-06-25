@@ -1,0 +1,28 @@
+syntax = "proto2";
+
+package protocol;
+
+import "IdentityMsg.proto";
+
+message RegisterReq {
+    required IdentityMsg Iden = 1;
+    required string IMSI = 2;
+    optional string IMEI = 3 [default=""];
+    optional string MAC = 4 [default=""]; // 蓝牙MAC地址
+    optional int32 DeviceType = 5 [default=0]; // 设备类型
+    optional int32 HardwareVersion = 6 [default=0]; // 硬件版本
+    optional int32 FirmwareVersion = 7 [default=0]; // 固件版本
+    optional int32 Status = 8 [default=0];  // 自检状态: 0 - 无异常
+    optional int32 BatteryVoltage = 9 [default=0]; // 电池电压: 毫伏
+    optional int32 BatteryPower = 10 [default=0]; // 电池电量: 百分比
+    optional int32 SignalStrength = 11 [default=0]; // 信号强度
+    optional int32 BitErrorRate = 12 [default=0]; // 误码率
+    optional int32 RadioAccessTechnology = 13 [default=0]; // 网络类型
+    optional uint32 NetworkOperator = 14 [default=0]; // 运营商代码
+}
+
+message RegisterRsp {
+    required IdentityMsg Iden = 1;
+    required uint32 Timestamp = 2; // UTC时间戳，校时用
+    optional int32 SimType = 3 [default=0]; // SIM卡类型
+}

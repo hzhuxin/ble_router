@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+package proto_router;
+
+import "IdentityMsg.proto";
+
+message SettingReq
+{
+    required IdentityMsg Head = 1;
+    required uint32 RouterId  = 2;  //Router ID(if need, reserved)
+    required uint32 Requester = 3;  //1:The setting receive from server(WAN NET)，2:From phone(BLE)
+    optional uint32 TimeStamp = 4;  
+    optional string TargetMac = 5;  //Ihe target device MAC addr will be add or delete
+    optional uint32 AddOrDel  = 6;  //0:Invalid,1:Add a target device(MAC)，2:Delete a target device, 3：Delete all target device
+    optional string TargetName= 7;  //Tagetname will be scaned
+    optional uint32 Mode      = 8;  //Router work mode, 0:Invalid,1:Only name, not need rights, 2:Must rights identity,according to the MAC configed
+    optional string Ip        = 9;  //Server IP
+    optional uint32 Port      = 10;  //Server port
+}
+
+//response operate status

@@ -1,0 +1,97 @@
+syntax = "proto2";
+package protocol_v2;
+
+// 命令类型定义
+enum HeaderType {
+	TypeRegisterReq     = 2;
+	TypeRegisterRsp     = 3;
+  // 设备上传注册信息
+
+	TypeParameterReq    = 4;
+	TypeParameterRsp    = 5;
+  // 设备读取参数信息
+
+	TypeSettingReq      = 6;
+	TypeSettingRsp      = 7;
+  // 设备读取配置信息
+
+	TypeEnvReq          = 8;
+	TypeEnvRsp          = 9;
+  // 设备上传环境数据
+
+	TypeBehavior2Req     = 10;
+	TypeBehavior2Rsp     = 11;
+  // 设备上传行为 feature
+
+	TypeGPSReq          = 12;
+	TypeGPSRsp          = 13;
+  // 设备上传定位数据
+
+	TypeCellularReq     = 14;
+	TypeCellularRsp     = 15;
+  // 设备上传基站数据
+
+	TypeWarningReq      = 16;
+	TypewarningRsp      = 17;
+  // 设备上传报警数据
+
+	TypeDownloadReq     = 18;
+	TypeDownloadRsp     = 19;
+  // 设备读取固件数据
+
+	TypeUploadReq       = 20;
+	TypeUploadRsp       = 21;
+  // 设备打包上传多种类型数据
+
+	TypeSettingAndParamReq       = 22;
+	TypeSettingAndParamRsp       = 23;
+  // 设备打包读取参数和配置信息
+
+	TypeSMSMsg          = 24;
+	TypeSMSRply         = 25;
+  // 手机短信控制设备: 封装成协议包后进行Base64编码, 然后通过短信传输
+
+	TypeEstrusReq    = 28;
+	TypeEstrusRsp    = 29;
+  // 设备上传发情feature
+
+	TypeOriginReq    = 30;
+	TypeOriginRsp    = 31;
+  // 设备上传加速度原始数据
+
+	TypeStatusReq    = 32;
+	TypeStatusRsp    = 33;
+  // 设备上传状态数据
+
+	TypeRouterReq    = 34;
+	TypeRouterRsp    = 35;
+  // 桩配置信息，req为发给桩，rsp为桩执行后回传
+
+	TypeActiveReq    = 36;
+	TypeActiveRsp    = 37;
+  // 激活桩命令
+
+	TypeRouterEnvReq    = 38;
+	TypeRouterEnvRsp    = 39;
+  // 桩的环境数据
+
+	TypeRouterGpsReq    = 40;
+	TypeRouterGpsRsp    = 41;
+  // 桩的GPS数据
+
+	TypeDebugReq        = 1002;
+	TypeDebugRsp        = 1003;
+  // 设备上传调试请求
+
+	TypeSensorReq       = 1004;
+	TypeSensorRsp       = 1005;
+  // 设备上传传感器数据
+
+	TypePingReq         = 1006;
+	TypePingRsp         = 1007;
+  // 设备测试链路
+
+	TypeAppReq          = 1008;
+	TypeAppRsp          = 1009;
+  // 手机App协商命令
+}
