@@ -1,12 +1,12 @@
-GNU_INSTALL_ROOT := C:/Program Files/GNU Tools ARM Embedded/7 2017-q4-major/bin/
+#GNU_INSTALL_ROOT := C:/Program Files/GNU Tools ARM Embedded/7 2017-q4-major/bin/
+GNU_INSTALL_ROOT := arm-none-eabi
 PROJECT_NAME     := ble_router
 TARGETS          := nrf52840_xxaa
 OUTPUT_DIRECTORY := _build
 
-SDK_ROOT := ../nrf5_sdk
-HAL_ROOT := ./nrf5_hal
-BLE_ROOT := ./nrf5_ble
-DEV_ROOT := ./odev
+SDK_ROOT := ../sdk
+HAL_ROOT := ./hal
+BLE_ROOT := ./ble
 UTIL_ROOT:= ./util
 PROJ_DIR := .
 
@@ -120,23 +120,8 @@ SRC_FILES += \
   $(PROJ_DIR)/prj/ble_c_app.c \
   $(PROJ_DIR)/prj/ble_s_app.c \
   $(PROJ_DIR)/prj/net_manage.c \
-  $(PROJ_DIR)/prj/setting_rights.c \
-  $(PROJ_DIR)/prj/execute_state.c \
   $(PROJ_DIR)/prj/HexStr.c \
-  $(PROJ_DIR)/pb/pb_common.c \
-  $(PROJ_DIR)/pb/pb_encode.c \
-  $(PROJ_DIR)/pb/pb_decode.c \
-  $(PROJ_DIR)/pb/pb_callback.c \
-  $(PROJ_DIR)/pb/Define.pb.c \
-  $(PROJ_DIR)/pb/IdentityMsg.pb.c \
-  $(PROJ_DIR)/pb/router_execsta.pb.c \
-  $(PROJ_DIR)/pb/router_setting.pb.c \
-  $(DEV_ROOT)/net/sim800.c \
-  $(DEV_ROOT)/net/attentive/src/modem/at-sim800.c \
-  $(DEV_ROOT)/net/attentive/src/at-freertos.c \
-	$(DEV_ROOT)/net/attentive/src/parser.c \
-	$(DEV_ROOT)/net/attentive/src/cellular.c \
-	$(DEV_ROOT)/net/attentive/src/modem/at-common.c \
+
 
 # Include folders common to all targets
 INC_FOLDERS += \
@@ -275,13 +260,9 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/ble/ble_link_ctx_manager \
   $(PROJ_DIR)/ \
   $(HAL_ROOT)\
-  $(DEV_ROOT)\
-  $(DEV_ROOT)/net \
-  $(DEV_ROOT)/net/attentive/include \
   $(UTIL_ROOT) \
   $(PROJ_DIR)/src \
   $(PROJ_DIR)/prj \
-  $(PROJ_DIR)/pb
    #../config 
 # Libraries common to all targets
 LIB_FILES += \

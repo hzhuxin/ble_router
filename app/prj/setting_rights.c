@@ -12,13 +12,10 @@
 //#include "init.h"
 #include "debug.h"
 //#include "app_log.h"
-#include "router_setting.pb.h"
 #include "HexStr.h"
 #include "ble_gap.h"
-#include "pb_callback.h"
 #include "crc16.h"
-#include "Define.pb.h"
-#include "execute_state.h"
+//#include "execute_state.h"
 #include "hal.h"
 #include "hal_rtc.h"
 #include "net_manage.h"
@@ -250,40 +247,7 @@ task_data_t * get_slave_settings(void)
     settings.length = slave_settings_len;
     return &settings;
 }
-static void setting_response(proto_router_execute_state_t status, TaskHandle_t task_handle)
-{
-    static uint8_t buf[200];
-    pkg_prot_head_t *prot_head = (pkg_prot_head_t *)buf;
-    pkg_prot_frame_t *prot_frame = (pkg_prot_frame_t *)buf;
-    uint16_t len = 0;
-    char mac_addr[15];
 
-    memset(mac_addr,0,sizeof(mac_addr));
-    uint8_t addr[8];
-    //ble_s->ops->get_mac(ble_s,addr,sizeof(addr));
-    HexToStr(mac_addr,addr,6);
-
-    len = opt_status_encode(prot_frame->p_prot_data,sizeof(buf)-sizeof(pkg_prot_head_t),status,mac_addr);
-
-    prot_head->prot_version = 1;
-    prot_head->vendor_id = 1;
-    prot_head->option_encryption = 0;
-    prot_head->reserve = 0;
-    prot_head->cmd_type = PROTOCOL_V2_HEADER_TYPE_TYPE_ROUTER_RSP;
-    prot_head->crc16 = crc16_compute((const uint8_t *)prot_head,sizeof(pkg_prot_head_t)-2,NULL);
-    prot_head->crc16 = crc16_compute((const uint8_t *)prot_frame->p_prot_data,len,&prot_head->crc16);
-    len += sizeof(pkg_prot_head_t);
-
-    task_data_t app_data;     
-    task_trig_t task_notify;
-    app_data.p_data = buf;
-    app_data.length = len;
-    task_notify.req_type = TASK_REQUEST_RESPONSE;
-    task_notify.p_content = &app_data;
-    task_notify.handle = NULL;
-
-    xTaskNotify(task_handle, (uint32_t)&task_notify, eNoAction);
-}
 bool judge_rights(void * arg)
 {    
     if(!arg)
@@ -309,52 +273,6 @@ bool judge_rights(void * arg)
     return true;
 }
 
-/**
-* @functionname : user_app_setting_parse 
-* @description  : function for update the application perform parameters, @ref user_setting_info_t
-* @input        : p_set_rsp_s: decoded message,  
-*               : p_set_info_t: all perform parameter data
-* @output       : none 
-* @return       : true if successed
-*/
-// static void setting_apply(proto_router_setting_req_t *p_proto,setting_params_t *p_setting)
-// {
-//     if(p_proto == NULL)
-//     {
-//         return;
-//     }
-//     if(p_proto.has_TimeStamp)
-//     {
-//         hal_rtc_set_time(p_proto.TimeStamp);
-//     }
-    
-//     m_router.id = p_proto.RouterId;
-
-//     //m_router.requester = p_setting->Requester;     //not attention the requester is phone or net
-// }
-
-static bool setting_decode( proto_router_setting_req_t * const p_set_cmd, 
-                            setting_params_t    * const p_set_out,
-                            uint8_t         const  *p_buf, 
-                            int32_t         const len)
-{
-    pb_istream_t    i_stream ;  
-    bool    ret;    
-
-    p_set_cmd->TargetMac.funcs.decode          = decode_repeated_var_string;
-    p_set_cmd->TargetMac.arg                   = p_set_out->mac;
-
-    p_set_cmd->TargetName.funcs.decode          = decode_repeated_var_string;
-    p_set_cmd->TargetName.arg                   = p_set_out->name;
-
-    p_set_cmd->Ip.funcs.decode          = decode_repeated_var_string;
-    p_set_cmd->Ip.arg                   = p_set_out->ip;
-       
-    i_stream = pb_istream_from_buffer(p_buf,len);
-    ret = pb_decode(&i_stream,proto_router_setting_req_fields,p_set_cmd); 
-    DBG_I("decode settings is %s\r\n", (ret? "successed":"failed"));
-    return ret;
-}
 /**
 * @functionname : app_setting_rsp_parse_handle 
 * @description  : function for parsing the received message, include decode, and enforce the settings for parameters
@@ -487,11 +405,11 @@ void setting_handler(void *arg, TaskHandle_t task_handle)
     {
         if(setting_parse(p_proto->p_prot_data,p_proto->prot_head.frame_len))
         {
-            setting_response(PROTO_ROUTER_EXECUTE_STATE_SUCCESSED,task_handle);
+            //setting_response(PROTO_ROUTER_EXECUTE_STATE_SUCCESSED,task_handle);
         }
         else
         {
-            setting_response(PROTO_ROUTER_EXECUTE_STATE_FAILED,task_handle);
+            //setting_response(PROTO_ROUTER_EXECUTE_STATE_FAILED,task_handle);
         }
     }
 }

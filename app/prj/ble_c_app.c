@@ -17,7 +17,6 @@
 #include "ble_c_app.h"
 #include "init.h"
 #include "HexStr.h"
-#include "Define.pb.h"
 #include "setting_rights.h"
 #include "crc16.h"
 #include "net_manage.h"
@@ -269,10 +268,10 @@ static void scan_handler(target_t const * p_content)
     }
     if(p_content != NULL)
     {
-        if(judge_rights(p_content->peer_addr->addr) != true)
-        {
-            return;
-        }
+        // if(judge_rights(p_content->peer_addr->addr) != true)
+        // {
+        //     return;
+        // }
         scan_result_list_insert(p_content->peer_addr->addr,(p_content->name[strlen(name)]-'0'));
     }
     else

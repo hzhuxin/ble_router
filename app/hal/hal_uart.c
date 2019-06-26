@@ -18,12 +18,7 @@
 #include "util.h"
 
 /* Defines -------------------------------------------------------------------*/
-#if defined(NRF52840_XXAA) && UART1_ENABLED // check version and UART1
-#define HAL_UART1_ENABLED
-#endif
-
 #define MAX_XFER_SIZE         255
-
 #define LOCK_TIMEOUT          pdMS_TO_TICKS(2000)
 
 #define CHECK_OBJ(obj)                  \
@@ -59,9 +54,8 @@ typedef struct priv_data {
   buffer_t* rx_buf;
   uint16_t tx_timeout;
   uint16_t rx_timeout;
-  int16_t tx_bytes;
-  int16_t rx_bytes;
-  uint8_t rx_buffer[2];
+  uint16_t tx_bytes;
+  uint16_t rx_bytes;
 } priv_data_t;
 
 /* Private variables ---------------------------------------------------------*/
@@ -69,17 +63,10 @@ typedef struct priv_data {
 static StaticSemaphore_t lock_tab[] = {
   {
   },
-#ifdef HAL_UART1_ENABLED
-  {
-  },
-#endif
 };
 
 static nrfx_uarte_t inst_tab[] = {
   NRFX_UARTE_INSTANCE(0),
-#ifdef HAL_UART1_ENABLED
-  NRFX_UARTE_INSTANCE(1),
-#endif
 };
 
 static hal_uart_t obj_tab[] = {
@@ -89,14 +76,6 @@ static hal_uart_t obj_tab[] = {
     .priv = NULL,
     .ops = NULL,
   },
-#ifdef HAL_UART1_ENABLED
-  {
-    .inst = &inst_tab[1],
-    .lock = NULL,
-    .priv = NULL,
-    .ops = NULL,
-  },
-#endif
 };
 
 /* Private functions ---------------------------------------------------------*/
@@ -165,9 +144,12 @@ static void uart_handler(nrfx_uarte_event_t const *p_event, void * p_context) {
     case NRFX_UARTE_EVT_TX_DONE:
       if(priv->tx_mode == HAL_UART_TX_MODE_NOCOPY) {
         priv->tx_bytes -= p_event->data.rxtx.bytes;
-        priv->tx_buf += p_event->data.rxtx.bytes;
         if(priv->tx_bytes > 0) {
+          priv->tx_buf += p_event->data.rxtx.bytes;
           if(nrfx_uarte_tx(obj->inst, priv->tx_buf, priv->tx_bytes > MAX_XFER_SIZE ? MAX_XFER_SIZE : priv->tx_bytes)) {
+            if(priv->tx_semphr) {
+              xSemaphoreGiveFromISR(priv->tx_semphr, NULL);
+            }
           }
         } else if(priv->tx_semphr) {
           xSemaphoreGiveFromISR(priv->tx_semphr, NULL);
@@ -182,40 +164,25 @@ static void uart_handler(nrfx_uarte_event_t const *p_event, void * p_context) {
           xSemaphoreGiveFromISR(priv->rx_semphr, NULL);
         }
       } else if(priv->rx_mode == HAL_UART_RX_MODE_BUFFERED) {
-        if(priv->rx_semphr && priv->rx_buf && priv->rx_bytes) {
-          uint8_t* data = p_event->data.rxtx.p_data;
-          int len = p_event->data.rxtx.bytes;
-          // data[len] = 0;
-          // NRF_LOG_WARNING("+++++ %s (%d)", data, len);
-          if(priv->rx_buf->capacity - priv->rx_buf->count < len) {
-            priv->rx_buf->ops->remove(priv->rx_buf, len - (priv->rx_buf->capacity - priv->rx_buf->count));
-            NRF_LOG_WARNING("UARTE_ERR_RX_BUFFER");
+        if(priv->rx_semphr && priv->rx_buf) {
+          if(priv->rx_buf->capacity == priv->rx_buf->count) {
+            priv->rx_buf->ops->remove(priv->rx_buf, 1);
           }
-          if(priv->rx_buf->ops->write(priv->rx_buf, data, len) != len) {
-            NRF_LOG_WARNING("UARTE_ERR_RX_WRITE");
-          }
-          if(len) {
+          if(priv->rx_buf->ops->push(priv->rx_buf, p_event->data.rxtx.p_data) == 1) {
+            nrfx_uarte_rx(obj->inst, (uint8_t*)&priv->rx_bytes, 1);
             xSemaphoreGiveFromISR(priv->rx_semphr, NULL);
           }
         }
       }
       break;
 
-    case NRFX_UARTE_EVT_RXSTARTED:
-      if(priv->rx_mode == HAL_UART_RX_MODE_BUFFERED && priv->rx_bytes) {
-        nrfx_uarte_rx(obj->inst, p_event->data.rxtx.p_data == priv->rx_buffer ? priv->rx_buffer + 1 : priv->rx_buffer, 1);
+    case NRFX_UARTE_EVT_ERROR:
+      if(priv->rx_mode == HAL_UART_RX_MODE_BUFFERED) {
+        nrfx_uarte_rx(obj->inst, (uint8_t*)&priv->rx_bytes, 1);
       }
       break;
 
-    case NRFX_UARTE_EVT_ERROR:
-      NRF_LOG_WARNING("UARTE_EVT_ERROR (0x%x)", p_event->data.error.error_mask);
-      // if(priv->rx_mode == HAL_UART_RX_MODE_BUFFERED && priv->rx_bytes) {
-      //   nrfx_uarte_rx(obj->inst, priv->rx_buffer, 1);
-      // }
-      break;
-
     default:
-      NRF_LOG_WARNING("UARTE_EVT_UNKNOWN");
       break;
   }
 }
@@ -264,9 +231,6 @@ static hal_err_t init (hal_uart_t* obj, const hal_uart_cfg_t* cfg) {
   priv->tx_mode = cfg->tx_mode;
   priv->rx_mode = cfg->rx_mode;
 
-  priv->rx_bytes = 0;
-  priv->tx_bytes = 0;
-
   priv->tx_timeout = pdMS_TO_TICKS(cfg->tx_timeout_ms);
   priv->rx_timeout = pdMS_TO_TICKS(cfg->rx_timeout_ms);
 
@@ -302,15 +266,7 @@ static hal_err_t deinit (hal_uart_t* obj) {
   priv_data_t* priv = (priv_data_t*) obj->priv;
   nrfx_uarte_uninit(obj->inst);
 
-  // Fix power consumption according to https://devzone.nordicsemi.com/f/nordic-q-a/26030/how-to-reach-nrf52840-uarte-current-supply-specification/102605#102605
-  *(volatile uint32_t *)((uint32_t)((nrfx_uarte_t*)obj->inst)->p_reg + 0xFFC) = 0;
-  *(volatile uint32_t *)((uint32_t)((nrfx_uarte_t*)obj->inst)->p_reg + 0xFFC);
-  *(volatile uint32_t *)((uint32_t)((nrfx_uarte_t*)obj->inst)->p_reg + 0xFFC) = 1;
-
   if(priv->rx_mode == HAL_UART_RX_MODE_BUFFERED) {
-    if(priv->rx_bytes) {
-      priv->rx_bytes = 0;
-    }
     buffer_delete(priv->rx_buf);
   }
   vPortFree(obj->priv);
@@ -431,25 +387,23 @@ static hal_err_t read(hal_uart_t* obj, void* buf, int len) {
     return priv->rx_bytes;
   } else if(priv->rx_mode == HAL_UART_RX_MODE_BUFFERED) {
     TickType_t start = xTaskGetTickCount();
-    TickType_t end = start + priv->rx_timeout;
     do {
       if(priv->rx_buf->count >= len) {
         break;
       }
 
       TickType_t now = xTaskGetTickCount();
-      if(!xSemaphoreTake(priv->rx_semphr, end >= now ? end - now : UINT32_MAX - now + end)) {
+      TickType_t end = start + priv->rx_timeout;
+      if(!xSemaphoreTake(priv->rx_semphr, end >= now ? end - now : 0xffffffff - now + end)) {
         break;
       }
     } while(!util_timeout(start, xTaskGetTickCount(), priv->rx_timeout));
 
-    taskENTER_CRITICAL();
     len = priv->rx_buf->count < len ? priv->rx_buf->count : len;
     if(len) {
       priv->rx_buf->ops->read(priv->rx_buf, buf, len);
       priv->rx_buf->ops->remove(priv->rx_buf, len);
     }
-    taskEXIT_CRITICAL();
     return len;
   } else {
     return HAL_ERR_NOT_SUPPORT;
@@ -507,10 +461,8 @@ static hal_err_t set_rx_enable (hal_uart_t* obj, bool en) {
   }
 
   if(en) {
-    priv->rx_bytes = 1;
-    nrfx_uarte_rx(obj->inst, priv->rx_buffer, 1);
+    nrfx_uarte_rx(obj->inst, (uint8_t*)&priv->rx_bytes, 1);
   } else {
-    priv->rx_bytes = 0;
     nrfx_uarte_rx_abort(obj->inst);
   }
 
@@ -558,9 +510,7 @@ static hal_err_t clr_rx_data (hal_uart_t* obj) {
     return HAL_ERR_MEMORY;
   }
 
-  taskENTER_CRITICAL();
   priv->rx_buf->ops->clear(priv->rx_buf);
-  taskEXIT_CRITICAL();
 
   return HAL_ERR_OK;
 }
@@ -606,4 +556,3 @@ hal_uart_t* hal_uart_get_instance(int id) {
 
   return obj;
 }
-

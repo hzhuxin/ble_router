@@ -12,13 +12,12 @@
 //#include "app_log.h"
 #include "net_manage.h"
 #include "init.h"
-#include "cell.h"
+//#include "cell.h"
 #include "hal_cfg.h"
 #include "hal_pin.h"
 #include "debug.h"
 #include "setting_rights.h"
 #include "ble_c_app.h"
-#include "Define.pb.h"
 #include "HexStr.h"
 #include "hal_rtc.h"
 
@@ -27,7 +26,7 @@
 DBG_SET_LEVEL(DBG_LEVEL_D);
 
 static TaskHandle_t net_handle = NULL;
-static int16_t connid = -1;
+//static int16_t connid = -1;
 //static char *pHost = "47.52.138.210";
 //static uint16_t port = 4190;
 static char pHost[16] = "47.52.138.210";
@@ -53,35 +52,35 @@ bool net_set_ip_port(char const *p_ip, uint32_t pport)
 }
 static bool net_start(void)
 {
-    if(!CELL_Reset() || !CELL_Init())
-    {
-        DBG_I("net reset and init failed\r\n");
-        return false;
-    }
-    DBG_I("net reset and init ok\r\n");
-    if(!CELL_Register() || !CELL_Prepare())
-    {
-        DBG_I("net register or prepare failed\r\n");
-        DBG_I("remain stack size = %d",uxTaskGetStackHighWaterMark(NULL));
-        return false;
-    }   
-    DBG_I("net register or prepare ok\r\n");
-    DBG_I("connect host: %s, port=%d\r\n",pHost, port);
-    connid = CELL_Connect(pHost, port);
-    //*connid = CELL_Connect("www.baidu.com", 80);
-    if(connid < 0)
-    {
-        DBG_I("net connect failed\r\n");
-        DBG_I("net_start..., remain stack size = %d\r\n",uxTaskGetStackHighWaterMark(NULL));
-        return false;
-    }
-    DBG_I("net connect ok, connid= %d\r\n",connid);
-    return true;
+//     if(!CELL_Reset() || !CELL_Init())
+//     {
+//         DBG_I("net reset and init failed\r\n");
+//         return false;
+//     }
+//     DBG_I("net reset and init ok\r\n");
+//     if(!CELL_Register() || !CELL_Prepare())
+//     {
+//         DBG_I("net register or prepare failed\r\n");
+//         DBG_I("remain stack size = %d",uxTaskGetStackHighWaterMark(NULL));
+//         return false;
+//     }   
+//     DBG_I("net register or prepare ok\r\n");
+//     DBG_I("connect host: %s, port=%d\r\n",pHost, port);
+//     connid = CELL_Connect(pHost, port);
+//     //*connid = CELL_Connect("www.baidu.com", 80);
+//     if(connid < 0)
+//     {
+//         DBG_I("net connect failed\r\n");
+//         DBG_I("net_start..., remain stack size = %d\r\n",uxTaskGetStackHighWaterMark(NULL));
+//         return false;
+//     }
+//     DBG_I("net connect ok, connid= %d\r\n",connid);
+//     return true;
 }
 void net_close(void)
 {
-    CELL_Close(connid);
-    CELL_Shutdown();
+    // CELL_Close(connid);
+    // CELL_Shutdown();
 }
 void notity_ble_stop(void)
 {
@@ -151,38 +150,11 @@ void net_rx_handler(void * arg)
     static task_trig_t task_notify;
     task_notify.handle = (TaskHandle_t*)&net_handle;
     task_notify.p_content = (task_data_t *)arg;
-#if(0)
-    task_data_t *task_data = (task_data_t *)arg;
-    pkg_prot_head_t *prot_head = (pkg_prot_head_t *)task_data->p_data;
-    if(prot_head->cmd_type == PROTOCOL_V2_HEADER_TYPE_TYPE_SETTING_RSP)
-    {
-        //if setting
-        task_notify.req_type = TASK_REQUEST_SETTING;
-        xTaskNotify(xTaskGetHandle("strt\0"), (uint32_t)&task_notify, eNoAction);
-        task_trig_t notify_value;
-        if(xTaskNotifyWait( 0,0,(uint32_t*)&notify_value,portMAX_DELAY ) == pdPASS)
-        {
-            task_data_t *task_data = (task_data_t *)(notify_value.p_content);
-            CELL_Send(connid,(char *)task_data->p_data,task_data->length);
-            //response(notify_value.req_type?
-            //        PROTOCOL_STATUS_TYPE_SUCCESSED : PROTOCOL_STATUS_TYPE_FAILED);
-        }
-        else
-        {
-            //response(PROTOCOL_STATUS_TYPE_FAILED);
-        }
-    }
-    else
-    {
-        //if data for blec wait to download(to slave)
-        task_notify.req_type = TASK_REQUEST_BLE_C_TX;
-        xTaskNotify(xTaskGetHandle("blec\0"), (uint32_t)&task_notify, eNoAction);
-    }
-#else
+
     memset(&task_notify,0,sizeof(task_notify));
     task_notify.req_type = TASK_REQUEST_BLE_C_TX;
     xTaskNotify(get_ble_c_task_handle(), (uint32_t)&task_notify, eNoAction);
-#endif
+
 }
 bool net_tx(void *arg)
 {
@@ -191,7 +163,7 @@ bool net_tx(void *arg)
         DBG_I("net_tx pointer is null\r\n");
     }
     task_data_t *p_net = (task_data_t *)arg;
-    int ret = CELL_Send(connid,(char *)p_net->p_data,p_net->length);
+    int ret;// = CELL_Send(connid,(char *)p_net->p_data,p_net->length);
     if(ret != p_net->length)
     {
         DBG_I("net test of send data failed, len = %d,ret = %d\r\n",p_net->length,ret);
@@ -208,7 +180,7 @@ bool net_send(uint8_t *p_tx, uint16_t len)
     char buf[200];
     HexToStr(buf,p_tx,len);
     DBG_I("%s",buf);
-    int ret = CELL_Send(connid,(char *)p_tx,len);
+    int ret ;//= CELL_Send(connid,(char *)p_tx,len);
     if(ret != len)
     {
         DBG_I("net test of send data failed, len = %d,ret = %d\r\n",len,ret);
@@ -224,7 +196,7 @@ int32_t net_wait_res(uint8_t *net_buf, uint16_t buf_size)
     while(time-- > 0)
     {
         DBG_I("waiting response... %d S\r\n",time);
-        len = CELL_Recv(connid,(char *)net_buf,buf_size);
+        //len = CELL_Recv(connid,(char *)net_buf,buf_size);
         if(len > 0)
         {
             DBG_I("received response\r\n");
@@ -267,7 +239,7 @@ void net_test(void)
     hal_pin_set_mode(HAL_CFG_CELL_RXD,HAL_PIN_MODE_IN);
     hal_pin_set_mode(15,HAL_PIN_MODE_OUT);
     hal_pin_set_mode(17,HAL_PIN_MODE_IN);
-    CELL_Reset();
+   // CELL_Reset();
     vTaskDelay(1000);
     while(1)
     {
@@ -341,7 +313,7 @@ void net_handle_task(void *arg)
         }
         if(connect_falg)
         {
-            len = CELL_Recv(connid,(char *)net_buf,sizeof(net_buf));
+            //len = CELL_Recv(connid,(char *)net_buf,sizeof(net_buf));
             if(len > 0)
             {               
                 net_data.p_data = net_buf;
