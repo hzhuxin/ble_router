@@ -6,9 +6,20 @@
 #include "app_freertos.h"
 #include "hal.h"
 
+typedef enum
+{
+    NET_CONNECTION_REQ,
+    NET_SEND_DATA_REQ,
+    NET_RECEIVE_DATA_REQ,
+    NET_MAX_TYPE
+}net_opt_type_t;
+
+typedef struct 
+{
+    int32_t len;
+    uint8_t data[0];
+}msg_t;
 
 void create_net_manage_task(void);
-hal_err_t net_trans(uint8_t * buf,uint16_t len,uint16_t out_size);
-TaskHandle_t *get_net_handle(void);
-bool net_set_ip_port(char const *p_ip, uint32_t pport);
+bool send_msg_to_server(void *msg);
 #endif //_NET_MANAGE_H_

@@ -74,6 +74,7 @@ void creat_app_task(void)
     ble_c_handle = create_ble_c_task();
     //create_ble_s_task();
     create_net_manage_task();
+    create_data_mgt_task();
     //create_wdt_task();
 }
 void init_handle_task(void *arg)

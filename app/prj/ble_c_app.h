@@ -48,6 +48,11 @@ typedef struct scan_result_list_s
     struct scan_result_list_s *next;
 }scan_result_list_t;
 
+typedef struct
+{
+    
+}slv_adv_t;
+
 //ble_c_params default config
 #define BLE_C_PARAMS_DEFAULT        \
 {                                   \

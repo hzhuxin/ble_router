@@ -121,7 +121,8 @@ SRC_FILES += \
   $(PROJ_DIR)/prj/ble_s_app.c \
   $(PROJ_DIR)/prj/net_manage.c \
   $(PROJ_DIR)/prj/HexStr.c \
-
+  $(PROJ_DIR)/prj/data_mgt.c \
+  $(PROJ_DIR)/prj/data_cache.c
 
 # Include folders common to all targets
 INC_FOLDERS += \

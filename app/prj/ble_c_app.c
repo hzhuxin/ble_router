@@ -20,6 +20,7 @@
 #include "setting_rights.h"
 #include "crc16.h"
 #include "net_manage.h"
+#include "data_cache.h"
 
 #define S_RUN_INDEX     15
 #define RUN_INDEX       17
@@ -54,6 +55,7 @@ static task_cycle_opt_flag_t    opt_flag;
 static scan_result_list_t       * m_scan_result_list = NULL;
 static scan_result_list_t       * max_lvl_node = NULL;
 static uint16_t                 scan_result_cnt = 0;
+static slv_msg_t                slv;
 /**@brief Parameters used when scanning. */
 static ble_gap_scan_params_t const m_scan_params =
 {
@@ -268,11 +270,9 @@ static void scan_handler(target_t const * p_content)
     }
     if(p_content != NULL)
     {
-        // if(judge_rights(p_content->peer_addr->addr) != true)
-        // {
-        //     return;
-        // }
-        scan_result_list_insert(p_content->peer_addr->addr,(p_content->name[strlen(name)]-'0'));
+        slv_adv_t *adv;
+        adv-
+        //scan_result_list_insert(p_content->peer_addr->addr,(p_content->name[strlen(name)]-'0'));
     }
     else
     {
@@ -414,46 +414,9 @@ static void ble_c_receive_handler(task_data_t *arg)
         return;
     }
     pkg_prot_head_t *prot_head = (pkg_prot_head_t *)arg->p_data;
-    static task_trig_t task_notify;
-    //char buf[200];
-    //HexToStr(buf,arg->p_data,arg->length);
-    //DBG_I("%s",buf);    
+    static task_trig_t task_notify;   
     DBG_I("the cmd_type = %d\r\n",prot_head->cmd_type);
-#if 0
-    //if(prot_head->cmd_type == PROTOCOL_V2_HEADER_TYPE_TYPE_SETTING_REQ)
-    {
-        //this is a setting request from terminal device
-        task_data_t * set = get_slave_settings();
-        if(set != NULL)
-        {
-            //if(ble_c->ops->transmit(ble_c,conn,set->p_data,set->length) == HAL_ERR_FAIL)
-            {
-                ble_c->ops->transmit(ble_c,conn,set->p_data,set->length);
-            }
-        }
-        else
-        {
-            pkg_prot_head_t set_res;
-            memcpy(&set_res,prot_head,sizeof(pkg_prot_head_t));
-            set_res.cmd_type = PROTOCOL_V2_HEADER_TYPE_TYPE_SETTING_RSP;
-            set_res.frame_len = 0;
-            set_res.crc16 = crc16_compute((const uint8_t *)&set_res,sizeof(pkg_prot_head_t)-2,NULL);
-            if(ble_c->ops->transmit(ble_c,conn,(uint8_t *)&set_res,sizeof(pkg_prot_head_t)) == HAL_ERR_FAIL)
-            {
-                ble_c->ops->transmit(ble_c,conn,(uint8_t *)&set_res,sizeof(pkg_prot_head_t));
-            }
-        }
-    }
-    else
-    {
-        //this is data will be upload through net
-        memset(&task_notify,0,sizeof(task_notify));
-        task_notify.req_type = TASK_REQUEST_UPLOAD_VIA_NET;
-        task_notify.p_content = (void *)arg;
-        task_notify.handle = &ble_c_handle;
-        xTaskNotify(get_net_handle(), (uint32_t)&task_notify, eSetBits);
-    }
-#else
+
     memset(&task_notify,0,sizeof(task_notify));
     task_notify.req_type = TASK_REQUEST_UPLOAD_VIA_NET;
     task_notify.p_content = (void *)arg;
@@ -461,7 +424,6 @@ static void ble_c_receive_handler(task_data_t *arg)
     xTaskNotify(get_net_handle(), (uint32_t)&task_notify, eSetBits);
     opt_flag.up_load = 1;
     DBG_I("----blec received from slave(0x%x),len=%d---:\r\n",arg,arg->length);
-#endif
 }
 static bool searched_result_handler(void)
 {
@@ -493,99 +455,96 @@ static void ble_c_handle_task(void *arg)
     config.rx_handler = ble_c_rx_callback;
     config.disc_handler = ble_c_disc_callback;
     ble_c = ble_c_get_instance(0);
-    if((ble_c) && \
-       (ble_c->ops->lock(ble_c) == HAL_ERR_OK) && \
-       (ble_c->ops->init(ble_c,&config) == HAL_ERR_OK) \
+    if(!(ble_c) || \
+       !(ble_c->ops->lock(ble_c) == HAL_ERR_OK) || \
+       !(ble_c->ops->init(ble_c,&config) == HAL_ERR_OK) \
        )
     {
-        DBG_I("ble_c init ok\r\n");       
-        static task_trig_t *notify_value = NULL;
-        //static task_trig_t task_trig;
-        //static task_data_t task_data; 
-        TickType_t wait_tick = portMAX_DELAY;
-        memset(&opt_flag,0,sizeof(opt_flag));
-        scan_result_list_init();
-        while(1)
+        DBG_E("ble_c_handle_task startup failed\r\n");
+        return;
+    }
+    DBG_I("ble_c init ok\r\n");       
+    static task_trig_t *notify_value = NULL;
+    TickType_t wait_tick = portMAX_DELAY;
+    memset(&opt_flag,0,sizeof(opt_flag));
+    scan_result_list_init();
+    while(1)
+    {
+        DBG_D("blec app waiting notify, wait_tick = %d\r\n",wait_tick);
+        if(xTaskNotifyWait( 0,ULONG_MAX,(uint32_t *)&notify_value,wait_tick ) == pdPASS)
         {
-            DBG_D("blec app waiting notify, wait_tick = %d\r\n",wait_tick);
-            if(xTaskNotifyWait( 0,ULONG_MAX,(uint32_t *)&notify_value,wait_tick ) == pdPASS)
+            //task_evt = notify_value.req_type
+            DBG_I("blec task notitied type %d from task \"%s\"\r\n",notify_value->req_type,pcTaskGetName(notify_value->handle));
+            switch(notify_value->req_type)
             {
-                //task_evt = notify_value.req_type
-                DBG_I("blec task notitied type %d from task \"%s\"\r\n",notify_value->req_type,pcTaskGetName(notify_value->handle));
-                switch(notify_value->req_type)
-                {
-                    case TASK_REQUEST_BLE_C_START_SCAN_RECEIVE:
-                        DBG_I("TASK_REQUEST_BLE_C_START_SCAN_RECEIVE, start scan and receive data\r\n");                        
-                        opt_flag.active = 1;    
-                        ble_c_search_target();                                                  
-                        break;
-                    case TASK_REQUEST_BLE_C_STOP_SCAN_RECEIVE:
-                        opt_flag.connect = 0;
-                        opt_flag.active = 0;
-                        //ble_c->ops->scan_stop(ble_c);
-                        ble_c->ops->disconnect(ble_c,&conn);
-                        scan_rerults_all_delete(m_scan_result_list->next);
-                        m_scan_result_list->next = NULL;
-                        break;
-                    case TASK_REQUEST_BLE_C_TX:
-                        DBG_I("TASK_REQUEST_BLE_C_TX\r\n");
-                        ble_c_trans(notify_value->p_content);
-                        start_time = xTaskGetTickCount();
-                        break;
-                    case TASK_REQUEST_BLE_C_RX:
-                        DBG_I("TASK_REQUEST_BLE_C_RX\r\n");
-                        ble_c_receive_handler(notify_value->p_content);
-                        start_time = xTaskGetTickCount(); //if no server response in wait time, re-connect server
-                        break;
-                    case TASK_REQUEST_BLE_C_SCAN_COMPLETE:
-                        DBG_I("TASK_REQUEST_BLE_C_SCAN_COMPLETE\r\n");
-                        searched_result_handler();
-                        start_time = xTaskGetTickCount();
-                        opt_flag.connect = 1;
-                        break;
-                    case TASK_REQUEST_BLE_C_CONNECTED:
-                        DBG_I("TASK_REQUEST_BLE_C_CONNECTED\r\n");                       
-                        //send_config();  //if has config to terminal
-                        start_time = xTaskGetTickCount();
-                        break;
-                    case TASK_REQUEST_BLE_C_DISCONNECTED:
-                        DBG_I("TASK_REQUEST_BLE_C_DISCONNECTED\r\n");
-                        opt_flag.connect = 0;
-                        searched_result_handler(); 
-                        start_time = xTaskGetTickCount();
-                        break;
-                    case TASK_REQUEST_NET_RESPONSE:
-                        DBG_I("TASK_REQUEST_NET_RESPONSE\r\n");
-                        break;
-                    default:
-                        DBG_E("invalid blec task req type\r\n");
-                        break;
-                }
+                case TASK_REQUEST_BLE_C_START_SCAN_RECEIVE:
+                    DBG_I("TASK_REQUEST_BLE_C_START_SCAN_RECEIVE, start scan and receive data\r\n");                        
+                    opt_flag.active = 1;    
+                    ble_c_search_target();                                                  
+                    break;
+                case TASK_REQUEST_BLE_C_STOP_SCAN_RECEIVE:
+                    opt_flag.connect = 0;
+                    opt_flag.active = 0;
+                    //ble_c->ops->scan_stop(ble_c);
+                    ble_c->ops->disconnect(ble_c,&conn);
+                    scan_rerults_all_delete(m_scan_result_list->next);
+                    m_scan_result_list->next = NULL;
+                    break;
+                case TASK_REQUEST_BLE_C_TX:
+                    DBG_I("TASK_REQUEST_BLE_C_TX\r\n");
+                    ble_c_trans(notify_value->p_content);
+                    start_time = xTaskGetTickCount();
+                    break;
+                case TASK_REQUEST_BLE_C_RX:
+                    DBG_I("TASK_REQUEST_BLE_C_RX\r\n");
+                    ble_c_receive_handler(notify_value->p_content);
+                    start_time = xTaskGetTickCount(); //if no server response in wait time, re-connect server
+                    break;
+                case TASK_REQUEST_BLE_C_SCAN_COMPLETE:
+                    DBG_I("TASK_REQUEST_BLE_C_SCAN_COMPLETE\r\n");
+                    searched_result_handler();
+                    start_time = xTaskGetTickCount();
+                    opt_flag.connect = 1;
+                    break;
+                case TASK_REQUEST_BLE_C_CONNECTED:
+                    DBG_I("TASK_REQUEST_BLE_C_CONNECTED\r\n");                       
+                    //send_config();  //if has config to terminal
+                    start_time = xTaskGetTickCount();
+                    break;
+                case TASK_REQUEST_BLE_C_DISCONNECTED:
+                    DBG_I("TASK_REQUEST_BLE_C_DISCONNECTED\r\n");
+                    opt_flag.connect = 0;
+                    searched_result_handler(); 
+                    start_time = xTaskGetTickCount();
+                    break;
+                case TASK_REQUEST_NET_RESPONSE:
+                    DBG_I("TASK_REQUEST_NET_RESPONSE\r\n");
+                    break;
+                default:
+                    DBG_E("invalid blec task req type\r\n");
+                    break;
             }
-            wait_tick = portMAX_DELAY;
-            if(opt_flag.active)
+        }
+        wait_tick = portMAX_DELAY;
+        if(opt_flag.active)
+        {
+            wait_tick = 1000;
+            if(opt_flag.connect)
             {
-                wait_tick = 1000;
-                if(opt_flag.connect)
-                {
-                    //if(opt_flag.down_load)
-                    //not only receive, but connect,so the connect flag must be set at scan complete
-                    {             
-                        if((xTaskGetTickCount() - start_time) > BLE_RECEIVE_TIMEOUT)
-                        {
-                            DBG_I("ble central receive timeout %dmS\r\n",(xTaskGetTickCount() - start_time));                            
-                            ble_c->ops->disconnect(ble_c,&conn);
-                            //searched_result_handler(); 
-                            start_time = xTaskGetTickCount();        
-                        }
+                //if(opt_flag.down_load)
+                //not only receive, but connect,so the connect flag must be set at scan complete
+                {             
+                    if((xTaskGetTickCount() - start_time) > BLE_RECEIVE_TIMEOUT)
+                    {
+                        DBG_I("ble central receive timeout %dmS\r\n",(xTaskGetTickCount() - start_time));                            
+                        ble_c->ops->disconnect(ble_c,&conn);
+                        //searched_result_handler(); 
+                        start_time = xTaskGetTickCount();        
                     }
                 }
-            }           
-        }
-    }
-    ble_c->ops->deinit(ble_c);
-    ble_c->ops->unlock(ble_c);
-    DBG_I("ble_c_handle_task startup failed\r\n");
+            }
+        }           
+    } 
 }
 
 TaskHandle_t create_ble_c_task(void)
