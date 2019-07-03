@@ -277,7 +277,7 @@ OPT = -g3
 # C flags common to all targets
 CFLAGS += $(OPT)
 CFLAGS += -DBOARD_PCA10056
-#CFLAGS += -DCONFIG_GPIO_AS_PINRESET
+CFLAGS += -DCONFIG_GPIO_AS_PINRESET
 CFLAGS += -DCONFIG_NFCT_PINS_AS_GPIOS
 CFLAGS += -DFLOAT_ABI_HARD
 CFLAGS += -DFREERTOS
@@ -369,7 +369,7 @@ sd:
 	nrfjprog -f nrf52 --program $(SDK_ROOT)/components/softdevice/s140/hex/s140_nrf52_6.0.0_softdevice.hex --sectorerase
 	nrfjprog -f nrf52 --reset
 
-erase:
+e:
 	nrfjprog -f nrf52 --eraseall
 
 SDK_CONFIG_FILE := ./config/sdk_config.h

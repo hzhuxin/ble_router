@@ -26,7 +26,7 @@
 
 
 #define R_RUN_INDEX     NRF_GPIO_PIN_MAP(1,9)
-#define G_RUN_INDEX     NRF_GPIO_PIN_MAP(0,12)
+#define G_RUN_INDEX     NRF_GPIO_PIN_MAP(0,6)
 DBG_SET_LEVEL(DBG_LEVEL_I);
 //DBG_LOG_ENABLE(true);
 
@@ -73,19 +73,20 @@ void creat_app_task(void)
     //create_setting_rights_task();
     ble_c_handle = create_ble_c_task();
     //create_ble_s_task();
-    create_net_manage_task();
-    create_data_mgt_task();
+    //create_net_manage_task();
+    //create_data_mgt_task();
     //create_wdt_task();
 }
 void init_handle_task(void *arg)
 {
     DBG_I("init_handle_task startup");
-    hal_pin_set_mode(R_RUN_INDEX,HAL_PIN_MODE_OUT);
-    hal_pin_write(R_RUN_INDEX,HAL_PIN_LVL_LOW);
+    hal_pin_set_mode(G_RUN_INDEX,HAL_PIN_MODE_OUT);
+    hal_pin_write(G_RUN_INDEX,HAL_PIN_LVL_HIGH);
     static task_trig_t task_notify;
+    creat_app_task();
     while(1)
         {
-            if(1)   //read active signal
+            /*if(1)   //read active signal
             {
                 //activation command
                 creat_app_task();
@@ -100,10 +101,10 @@ void init_handle_task(void *arg)
                 //vTaskDelete(NULL);
                 vTaskDelay(1000);
                 vTaskSuspend(init_handle);
-            }
-            hal_pin_write(R_RUN_INDEX,HAL_PIN_LVL_HIGH);
+            }*/
+            hal_pin_write(G_RUN_INDEX,HAL_PIN_LVL_LOW);
             vTaskDelay(50);
-            hal_pin_write(R_RUN_INDEX,HAL_PIN_LVL_LOW);
+            hal_pin_write(G_RUN_INDEX,HAL_PIN_LVL_HIGH);
             vTaskDelay(1000);
         }
 }

@@ -217,12 +217,7 @@ static void scan_to_receive(void)
 }
 static void ble_c_handle_task(void *arg)
 {
-    //get instance
-    //ble_c_cfg_t config  = NULL;
-    // config.rx_handler = NULL;
-    // config.conn_handler = NULL;
-    // config.disc_handler = NULL;
-    // config.tx_timeout = 0;
+    DBG_I("ble_c_handle_task startint...");
     ble_c = ble_c_get_instance(0);
     if((ble_c) && \
        (ble_c->ops->lock(ble_c) == HAL_ERR_OK) && \

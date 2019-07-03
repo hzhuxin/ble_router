@@ -270,8 +270,8 @@ static void scan_handler(target_t const * p_content)
     }
     if(p_content != NULL)
     {
-        slv_adv_t *adv;
-        adv-
+        //slv_adv_t *adv;
+        //adv-
         //scan_result_list_insert(p_content->peer_addr->addr,(p_content->name[strlen(name)]-'0'));
     }
     else

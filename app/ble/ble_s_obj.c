@@ -39,7 +39,7 @@
 /*******************************defines**********************************/
 
 #define LOCK_TIMEOUT    pdMS_TO_TICKS(2000)
-DBG_SET_LEVEL(DBG_LEVEL_N);
+DBG_SET_LEVEL(DBG_LEVEL_D);
 
 #define CHECK_OBJ(obj)                  \
 {                                       \

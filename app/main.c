@@ -23,10 +23,15 @@
 #include "init.h"
 #include "hal_cpu.h"
 #include "hal_rtc.h"
+#include "hal_pin.h"
+#include "debug.h"
+#include "nrf_gpio.h"
 
 #if NRF_LOG_ENABLED
 static TaskHandle_t m_logger_thread;                                /**< Definition of Logger thread. */
 #endif
+
+DBG_SET_LEVEL(DBG_LEVEL_I);
 
 /**@brief Function for initializing the clock.
  */
@@ -104,7 +109,7 @@ void vApplicationIdleHook( void )
 int main(void)
 {
     bool erase_bonds;
-    hal_cpu_set_voltage_mode(HAL_CPU_VOLTAGE_REGULATOR_LDO,HAL_CPU_VOLTAGE_1V8);
+    hal_cpu_set_voltage_mode(HAL_CPU_VOLTAGE_REGULATOR_LDO,HAL_CPU_VOLTAGE_3V0);
     // Initialize.   
     clock_init();
     timer_init();
@@ -116,6 +121,7 @@ int main(void)
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 #endif
+    DBG_I("Start system1");
     hal_rtc_init();
     creat_init_task();
     // Activate deep sleep mode.
