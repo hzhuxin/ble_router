@@ -71,6 +71,7 @@ int32_t cache_init(void)
 }
 int32_t cache_insert_list(slv_msg_t *new_node)
 {
+    DBG_D("Dgt: cache_insert_list");
     if(cache_list.cnt >= MAX_LIST_NUMBER)
     {
         DBG_W("Cached slave messages are reached max!!!\r\n");
@@ -88,6 +89,13 @@ int32_t cache_insert_list(slv_msg_t *new_node)
     {
         memcpy(&node->data,new_node,sizeof(slv_msg_t));
         node->update_flag = 1;
+        DBG_I("Cache node[%02x:%02x:%02x:%02x:%02x:%02x] is exit, update flag=1",
+                new_node->mac[0],
+                new_node->mac[1],
+                new_node->mac[2],
+                new_node->mac[3],
+                new_node->mac[4],
+                new_node->mac[5]);
         return 0;
     }
     node = (slv_msg_lst_t *)pvPortMalloc(sizeof(slv_msg_t *));
@@ -111,7 +119,13 @@ int32_t cache_insert_list(slv_msg_t *new_node)
         cache_list.end = node;
         cache_list.cnt++;
     }
-    
+     DBG_I("Cache insert new node[%02x:%02x:%02x:%02x:%02x:%02x]",
+                node->data.mac[0],
+                node->data.mac[1],
+                node->data.mac[2],
+                node->data.mac[3],
+                node->data.mac[4],
+                node->data.mac[5]);
     //cache_unlock();
     return 0;
 }
@@ -150,13 +164,22 @@ int32_t cache_list_update_upload_state(slv_msg_lst_t *node[],int node_num)
 {
     if(!node)
     {
+        DBG_E("Cache:node is NULL,func: %s line: %d\r\n",__func__,__LINE__);
         return -1;
     }
+
+    if(!cache_list.head)
+    {
+        DBG_E("Cache:There is no data in cache list,func: %s line: %d\r\n",__func__,__LINE__);
+        return -2;
+    }
+    DBG_D("Dgt: Cache_list_update_upload_state\r\n");
     slv_msg_lst_t *p_list = cache_list.head;
     int32_t i=0;
     for(;(i<node_num && p_list); p_list = p_list->next)
     {
-        if(memcmp(p_list->data.mac,node[i]->data.mac,6) == 0)
+        //if(memcmp(p_list->data.mac,node->data.mac,6) == 0)
+        if(p_list == node[i])
         {
             p_list->upload_time = hal_rtc_get_time();
             p_list->update_flag = 0;

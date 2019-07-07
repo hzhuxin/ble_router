@@ -36,7 +36,6 @@ enum DBG_Level {
 
 /* Defines -------------------------------------------------------------------*/
 // Debug control
-// #define LOG_ENABLE
 #define DBG_ENABLE
 
 #ifdef LOG_ENABLE

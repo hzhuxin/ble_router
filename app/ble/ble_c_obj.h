@@ -56,6 +56,7 @@ struct target_s
 {
     char            * name;
     ble_gap_addr_t  * peer_addr;
+    ble_data_t      * data;
 };
 
 typedef struct config_c

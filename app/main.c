@@ -109,7 +109,7 @@ void vApplicationIdleHook( void )
 int main(void)
 {
     bool erase_bonds;
-    hal_cpu_set_voltage_mode(HAL_CPU_VOLTAGE_REGULATOR_LDO,HAL_CPU_VOLTAGE_3V0);
+    hal_cpu_set_voltage_mode(HAL_CPU_VOLTAGE_REGULATOR_LDO,HAL_CPU_VOLTAGE_2V7);
     // Initialize.   
     clock_init();
     timer_init();
@@ -121,7 +121,7 @@ int main(void)
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 #endif
-    DBG_I("Start system1");
+    DBG_I("\r\n\r\n\r\nStart system1");
     hal_rtc_init();
     creat_init_task();
     // Activate deep sleep mode.

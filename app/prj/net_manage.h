@@ -6,6 +6,8 @@
 #include "app_freertos.h"
 #include "hal.h"
 
+#define NET_QUEUE_DEFAULT_LENGTH    1024
+#define __HTTPS_ENABLE__            1
 typedef enum
 {
     NET_CONNECTION_REQ,

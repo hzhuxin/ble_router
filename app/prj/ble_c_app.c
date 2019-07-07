@@ -44,7 +44,7 @@ static TaskHandle_t             ble_c_handle = NULL;
 //static SemaphoreHandle_t      scan_trigger_sema = NULL;
 //static uint8_t                target_addr[BLE_GAP_ADDR_LEN];
 static ble_c_t                  *ble_c = NULL;
-static char                     name[] = "DebutNano\0";
+static char                     name[] = "CODEC_NAME\0";
 static uint16_t                 conn = BLE_CONN_HANDLE_INVALID;
 static scan_target_t            scan_target = SCAN_TARGET_MSG_DEFAULT;
 static connect_target_t         conn_target;
@@ -61,9 +61,9 @@ static ble_gap_scan_params_t const m_scan_params =
 {
     .extended      = 0,
     .active        = 1,
-    .interval      = 100,
-    .window        = 1200,
-    .timeout       = 0,
+    .interval      = 1000,
+    .window        = 1000,
+    .timeout       = 1000,
     .scan_phys     = BLE_GAP_PHY_1MBPS,
     .filter_policy = BLE_GAP_SCAN_FP_ACCEPT_ALL,
 };
@@ -238,45 +238,23 @@ static int scan_rerults_all_delete(scan_result_list_t *node)
     scan_result_cnt = 0;
     return 0;
 }
-/*
-static void scan_rerults_all_delete(void)
-{
-    scan_result_cnt = 0;
-    if(m_scan_result_list->next == NULL)
-    {
-        return;
-    }
-    scan_result_list_t *node = m_scan_result_list->next;
-    scan_result_list_t *temp = m_scan_result_list->next;
-    m_scan_result_list->next = NULL;
-    do
-    {
-        temp = temp->next;  //save next node
-        DBG_I("delete node 0x%x\r\n",node);
-        memset(node,0,sizeof(scan_result_list_t));
-        vPortFree(node);
-        //node->next = NULL;
-        node = temp;        //point to next node
-    }while(temp);
-}*/
+
 static void scan_handler(target_t const * p_content)
 {
     //DBG_I("scan complete");
     static task_trig_t task_notify;
-    if(!opt_flag.active)
-    {
-        ble_c->ops->scan_stop(ble_c);
-        return;
-    }
+    DBG_I("BLE App:scan_handler.");
     if(p_content != NULL)
     {
+        //ble_data_t *adv = p_content->data;
+        NRF_LOG_HEXDUMP_INFO(p_content->data->p_data,p_content->data->len);
         //slv_adv_t *adv;
         //adv-
         //scan_result_list_insert(p_content->peer_addr->addr,(p_content->name[strlen(name)]-'0'));
     }
     else
     {
-        //DBG_I("scan timeout, stop scanning");
+        DBG_I("scan timeout, stop scanning");
         ble_c->ops->scan_stop(ble_c);
         memset(&task_notify,0,sizeof(task_notify));
         task_notify.req_type = TASK_REQUEST_BLE_C_SCAN_COMPLETE;
@@ -342,12 +320,13 @@ void setting_ble_c_params(ble_c_params_t * p_params)
     }
     if(p_params->recv_net_timeout != 0)
     {
-        DBG_I("set ble_c recv_net_timeout = %d\r\n",p_params->recv_net_timeout);
+        DBG_E("set ble_c recv_net_timeout = %d\r\n",p_params->recv_net_timeout);
         ble_c_params.recv_net_timeout   = p_params->recv_net_timeout;
     }
 }
 static bool ble_c_search_target(void)
 {
+    DBG_I("Start scan...");
     scan_target.name = name;
     //scan_target.addr = addr;
     scan_target.scan_params = (ble_gap_scan_params_t *)&m_scan_params;
@@ -355,8 +334,10 @@ static bool ble_c_search_target(void)
     scan_target.handler = scan_handler;        //若使用回调，则不进入柱塞
     if(ble_c->ops->scan(ble_c,&scan_target,SCAN_TIMEOUT) == HAL_ERR_OK)
     {
+        DBG_I("BLE App:Start scan success");
         return true;
     }
+    DBG_E("BLE App:Start scan failed");
     return false;
 }
 static bool ble_c_connect_target(void)
@@ -466,90 +447,20 @@ static void ble_c_handle_task(void *arg)
     DBG_I("ble_c init ok\r\n");       
     static task_trig_t *notify_value = NULL;
     TickType_t wait_tick = portMAX_DELAY;
-    memset(&opt_flag,0,sizeof(opt_flag));
+    //memset(&opt_flag,0,sizeof(opt_flag));
     scan_result_list_init();
+    ble_c_search_target();
     while(1)
     {
-        DBG_D("blec app waiting notify, wait_tick = %d\r\n",wait_tick);
+        DBG_I("BLE App: waiting notify\r\n"); 
         if(xTaskNotifyWait( 0,ULONG_MAX,(uint32_t *)&notify_value,wait_tick ) == pdPASS)
-        {
-            //task_evt = notify_value.req_type
-            DBG_I("blec task notitied type %d from task \"%s\"\r\n",notify_value->req_type,pcTaskGetName(notify_value->handle));
-            switch(notify_value->req_type)
-            {
-                case TASK_REQUEST_BLE_C_START_SCAN_RECEIVE:
-                    DBG_I("TASK_REQUEST_BLE_C_START_SCAN_RECEIVE, start scan and receive data\r\n");                        
-                    opt_flag.active = 1;    
-                    ble_c_search_target();                                                  
-                    break;
-                case TASK_REQUEST_BLE_C_STOP_SCAN_RECEIVE:
-                    opt_flag.connect = 0;
-                    opt_flag.active = 0;
-                    //ble_c->ops->scan_stop(ble_c);
-                    ble_c->ops->disconnect(ble_c,&conn);
-                    scan_rerults_all_delete(m_scan_result_list->next);
-                    m_scan_result_list->next = NULL;
-                    break;
-                case TASK_REQUEST_BLE_C_TX:
-                    DBG_I("TASK_REQUEST_BLE_C_TX\r\n");
-                    ble_c_trans(notify_value->p_content);
-                    start_time = xTaskGetTickCount();
-                    break;
-                case TASK_REQUEST_BLE_C_RX:
-                    DBG_I("TASK_REQUEST_BLE_C_RX\r\n");
-                    ble_c_receive_handler(notify_value->p_content);
-                    start_time = xTaskGetTickCount(); //if no server response in wait time, re-connect server
-                    break;
-                case TASK_REQUEST_BLE_C_SCAN_COMPLETE:
-                    DBG_I("TASK_REQUEST_BLE_C_SCAN_COMPLETE\r\n");
-                    searched_result_handler();
-                    start_time = xTaskGetTickCount();
-                    opt_flag.connect = 1;
-                    break;
-                case TASK_REQUEST_BLE_C_CONNECTED:
-                    DBG_I("TASK_REQUEST_BLE_C_CONNECTED\r\n");                       
-                    //send_config();  //if has config to terminal
-                    start_time = xTaskGetTickCount();
-                    break;
-                case TASK_REQUEST_BLE_C_DISCONNECTED:
-                    DBG_I("TASK_REQUEST_BLE_C_DISCONNECTED\r\n");
-                    opt_flag.connect = 0;
-                    searched_result_handler(); 
-                    start_time = xTaskGetTickCount();
-                    break;
-                case TASK_REQUEST_NET_RESPONSE:
-                    DBG_I("TASK_REQUEST_NET_RESPONSE\r\n");
-                    break;
-                default:
-                    DBG_E("invalid blec task req type\r\n");
-                    break;
-            }
-        }
-        wait_tick = portMAX_DELAY;
-        if(opt_flag.active)
-        {
-            wait_tick = 1000;
-            if(opt_flag.connect)
-            {
-                //if(opt_flag.down_load)
-                //not only receive, but connect,so the connect flag must be set at scan complete
-                {             
-                    if((xTaskGetTickCount() - start_time) > BLE_RECEIVE_TIMEOUT)
-                    {
-                        DBG_I("ble central receive timeout %dmS\r\n",(xTaskGetTickCount() - start_time));                            
-                        ble_c->ops->disconnect(ble_c,&conn);
-                        //searched_result_handler(); 
-                        start_time = xTaskGetTickCount();        
-                    }
-                }
-            }
-        }           
+        {}
     } 
 }
 
 TaskHandle_t create_ble_c_task(void)
 {
-    if(xTaskCreate( ble_c_handle_task, "BC\0", 1024, NULL, 1, &ble_c_handle ) != pdPASS)
+    if(xTaskCreate( ble_c_handle_task, "BC\0", 256, NULL, 1, &ble_c_handle ) != pdPASS)
     {
         return NULL;
     }

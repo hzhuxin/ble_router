@@ -21,22 +21,26 @@
 #include "HexStr.h"
 #include "hal_rtc.h"
 #include "hal_uart.h"
+#include "hal_pin.h"
 #include "data_cache.h"
+#include "data_mgt.h"
 
 /*********************************defines***************************************/
+#define B_NET_INDEX     NRF_GPIO_PIN_MAP(1,9)
+
+DBG_SET_LEVEL(DBG_LEVEL_D);
+
 char const NET_SET_MODE[] = "AT+WKMOD=\"NET\"\r\n\0";
 //char const *NET_SET_MODE[]  =      "AT+WKMOD=\"HTTPD\"\r\n\0";
 char const NET_EN_SOCKET_A[]  =   "AT+SOCKAEN=\"on\"\r\n\0";
 char const NET_SET_SERVER[]   =  "AT+SOCKA=\"TCP\",\"https://api.xinaitech.com/api/5d10a932ea612\"\r\n\0";
 char const NET_SAVE_CFG[]    =    "AT+S\r\n\0";
 
-DBG_SET_LEVEL(DBG_LEVEL_D);
-
 static TaskHandle_t net_handle = NULL;
 static QueueHandle_t net_msg_queue = NULL;
 static SemaphoreHandle_t    sema = NULL;
 static hal_uart_t   *uart = NULL;
-static xfer_t  xfer;
+static xfer_t  xfer = {0,0,0};
 /**********************************functions**************************************/
 int32_t uart_init(void)
 {
@@ -62,6 +66,7 @@ int32_t uart_init(void)
         DBG_E("UART init failed\r\n");
         return -2;
     }
+    DBG_E("UART init ok\r\n");
     return 0;
 }
 int32_t uart_write(void *buf,int32_t len)
@@ -99,7 +104,7 @@ int32_t net_dev_init(void)
 
 int32_t net_wait_res(uint8_t *buf, int32_t buf_size)
 {
-    int32_t time = 10;
+    int32_t time = 8;
     int32_t len = 0;
     //while(!util_timeout(start, xTaskGetTickCount(), 10000))
     while(time-- > 0)
@@ -122,18 +127,26 @@ int32_t net_upload(uint8_t *p_data, int32_t len)
         DBG_E("net upload pointer is NULL\r\n");
         return -1;
     }
+    DBG_D("Net: uploading data");
     if(uart_write(p_data,len) != len)
     {
         DBG_E("net upload failed\r\n");
+        return -2;
     }
-    xfer.len = net_wait_res(xfer.data,xfer.max_size);
-    if(xfer.len > 0 && net_msg_queue)
+    xfer.len = net_wait_res(p_data,NET_QUEUE_DEFAULT_LENGTH);
+    if(xfer.len > 0)
     {
-        //xQueueSendToBack(net_msg_queue, xfer, 1000);
+        DBG_D("Net: received server response");
+        xQueueSendToBack(net_msg_queue, p_data, 1000);
         //xTaskNotify(get_ble_c_task_handle(), (uint32_t)&task_notify, eSetBits);
-        xSemaphoreGive(sema);
+        //xSemaphoreGive(sema);
         return xfer.len;
     }
+    else
+    {
+        DBG_W("Net: Not received server response");
+    }
+    
     return -2;
 }
 int32_t net_recv(void)
@@ -150,27 +163,43 @@ int32_t net_recv(void)
 }
 void net_handle_task(void *arg)
 {
-    net_msg_queue = xQueueCreate(5,sizeof(xfer_t));
-    //xfer = (msg_t *)pvPortMalloc(xfer.max_size+sizeof(xfer.len));
+    DBG_I("Net task startup.");
+    net_msg_queue = xQueueCreate(2,NET_QUEUE_DEFAULT_LENGTH);
     if(!net_msg_queue)
     {
+        DBG_E("Net: Create queue failed");
         return;
     }
+    sema = xSemaphoreCreateBinary();
+    if(!sema)
+    {
+        DBG_E("Net: Create semaphore failed");
+        return;
+    }
+    xSemaphoreTake(sema,pdMS_TO_TICKS(10));
+    net_dev_init();
+    uint32_t cnt=0;
+    uint8_t msg[NET_QUEUE_DEFAULT_LENGTH];
+    msg_t *p_msg = (msg_t *)msg;
+    hal_pin_set_mode(B_NET_INDEX,HAL_PIN_MODE_OUT);
+    hal_pin_write(B_NET_INDEX,HAL_PIN_LVL_HIGH);
+
     while(1)
     {
-        if(xQueueReceive(net_msg_queue,&xfer,portMAX_DELAY) == pdPASS)
+        //if(xQueueReceive(net_msg_queue,&xfer,portMAX_DELAY) == pdPASS)
+        if(xQueueReceive(net_msg_queue, p_msg, pdMS_TO_TICKS(2000)) == pdPASS)
         {
-            net_upload(xfer.data,xfer.len);
+            //xfer_pkg_t *pkg = (xfer_pkg_t *)p_msg->data;
+            //DBG_I("Net task received:");
+            //NRF_LOG_HEXDUMP_INFO(msg,36);
+            DBG_D("Net: p_msg->len=%d",p_msg->len);
+            net_upload(msg,xfer.len);
         }
-        //net_recv();
-
-        // DBG_D("net manage waiting notify, wait_tick = %d\r\n",wait_tick);
-        // if(xTaskNotifyWait( 0,ULONG_MAX,(uint32_t *)&notify_value,wait_tick ) == pdPASS)
-        // {
-        //     //send data
-        //     //upload(notify_value->p_content);
-        // }
-         
+        
+        hal_pin_write(B_NET_INDEX,HAL_PIN_LVL_LOW);
+        vTaskDelay(5);
+        hal_pin_write(B_NET_INDEX,HAL_PIN_LVL_HIGH);
+        //DBG_I("Net task working count %d",cnt++);
     }
 }
 void create_net_manage_task(void)
@@ -186,12 +215,18 @@ void send_msg_to_net_queue(uint32_t *msg)
 }
 bool send_msg_to_server(void *msg)
 {
-    xQueueSendToBack(net_msg_queue, (xfer_t *)msg, 1000);
-    if(xSemaphoreTake(sema,pdMS_TO_TICKS(10000)) != pdTRUE)
+    if(!net_msg_queue || !sema)
     {
-        return -1;
+        DBG_E("Net: net_msg_queue || sema is NULL, func:%s,line: %d",__func__,__LINE__);
+        return false;
     }
-    return 0;
+    xQueueSendToBack(net_msg_queue, msg, 1000);
+    if(xSemaphoreTake(sema,pdMS_TO_TICKS(10000)) != pdTRUE)
+    //if(xQueueReceive(net_msg_queue, msg, pdMS_TO_TICKS(10000)) == pdPASS)
+    {
+        return false;
+    }
+    return true;
 }
 TaskHandle_t *get_net_handle(void)
 {

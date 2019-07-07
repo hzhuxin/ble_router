@@ -11,17 +11,17 @@
 typedef struct
 {
     uint8_t mac[6];
-    uint16_t temp;
-    uint16_t vol;
-    uint16_t rssi;
+    int16_t temp;
+    int16_t vol;
+    int16_t rssi;
     int32_t timestamp;
 }slv_msg_t;
 
 typedef struct slv_msg_lsg
 {
     struct slv_msg_lsg *next;
-    uint32_t  upload_time;
-    uint32_t  update_flag;
+    int32_t  upload_time;
+    int32_t  update_flag;
     slv_msg_t data;
 }slv_msg_lst_t;
 

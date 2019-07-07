@@ -35,13 +35,13 @@
 
 /*******************************defines**********************************/
 #define SCAN_INTERVAL                   100                                      /**< Determines scan interval in units of 0.625 millisecond. */
-#define SCAN_WINDOW                     1200                                      /**< Determines scan window in units of 0.625 millisecond. */
+#define SCAN_WINDOW                     1000                                      /**< Determines scan window in units of 0.625 millisecond. */
 
-#define SCAN_DURATION                   0x0000                                      /**< Duration of the scanning in units of 10 milliseconds. If set to 0x0000, scanning will continue until it is explicitly disabled. */
+#define SCAN_DURATION                   18000                                      /**< Duration of the scanning in units of 10 milliseconds. If set to 0x0000, scanning will continue until it is explicitly disabled. */
 
 #define LOCK_TIMEOUT    pdMS_TO_TICKS(2000)
 
-DBG_SET_LEVEL(DBG_LEVEL_I);
+DBG_SET_LEVEL(DBG_LEVEL_D);
 
 #define CHECK_OBJ(obj)                  \
 {                                       \
@@ -280,14 +280,14 @@ static bool check_scan_advdata( char    **const p_name,
     {
         *(p_parsed_name+parsed_name_len)= 0;
         // DBG_I("\r\n%s",p_parsed_name);
-        // DBG_I("%02x:%02x:%02x:%02x:%02x:%02x\r\n",
-        //                      peer_addr->addr[0],
-        //                      peer_addr->addr[1],
-        //                      peer_addr->addr[2],
-        //                      peer_addr->addr[3],
-        //                      peer_addr->addr[4],
-        //                      peer_addr->addr[5]
-        //                      );
+        DBG_I("%02x:%02x:%02x:%02x:%02x:%02x\r\n",
+                             peer_addr->addr[0],
+                             peer_addr->addr[1],
+                             peer_addr->addr[2],
+                             peer_addr->addr[3],
+                             peer_addr->addr[4],
+                             peer_addr->addr[5]
+                             );
         char *p_target = m_target_msg.name;
         char *p_scan = (char *)p_parsed_name;
         *p_name = (char *)p_parsed_name;
@@ -336,6 +336,7 @@ static bool check_scan_advdata( char    **const p_name,
 static void on_adv_report(ble_gap_evt_adv_report_t const * p_adv_report)
 {
     char *target_name = NULL;
+    DBG_I("on_adv_report:%s\r\n",target_name)
     bool ret = check_scan_advdata(&target_name,\
                                   p_adv_report->data.p_data, \
                                   p_adv_report->data.len, \
@@ -356,6 +357,7 @@ static void on_adv_report(ble_gap_evt_adv_report_t const * p_adv_report)
             target_t target;
             target.name         = (char *)target_name;
             target.peer_addr    = (ble_gap_addr_t*)&p_adv_report->peer_addr;
+            target.data         = &p_adv_report->data;
             m_target_msg.handler(&target);
         }
         else if(sema_scan != NULL)
@@ -763,7 +765,7 @@ hal_err_t ble_centr_scan(ble_c_t *obj, scan_target_t const *p_target, int32_t ti
             m_target_msg.addr  = p_target->addr;
             break;
         case NEED_ONLY_NAME:
-            DBG_I("scanning base on only name.");
+            DBG_I("scanning by name<%s> only.",p_target->name);
             if(p_target->name == NULL)
             {
                 DBG_I("invalid search name.");
@@ -796,22 +798,25 @@ hal_err_t ble_centr_scan(ble_c_t *obj, scan_target_t const *p_target, int32_t ti
         DBG_I("scan start failed.");
         return HAL_ERR_FAIL;
     }
+    DBG_D("Scan start success.");
     scan_start_time = xTaskGetTickCount();
     scan_timeout = 0;
     if(m_target_msg.handler != NULL)
     {
         //if has the call back , not need to waiting
+        DBG_D("Scanout call back handler is exist,not need wait,return.");
         scan_timeout = timeout;
         return HAL_ERR_OK;
     }
     if(sema_scan == NULL)
     {
+        DBG_D("Scan wait sema not creation, now create it.");
         sema_scan = xSemaphoreCreateBinary();
         xSemaphoreTake(sema_scan,0);
     }
     hal_err_t ret;
     uint32_t time = (timeout < 1000)?SCAN_TIME_DEFAULT:timeout;
-
+    DBG_D("Scan waiting for over, wait time = %d.",time);
     ret = (xSemaphoreTake(sema_scan,time) == pdPASS)?HAL_ERR_OK:HAL_ERR_FAIL;
 
     scan_stop();
