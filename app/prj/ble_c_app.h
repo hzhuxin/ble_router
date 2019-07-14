@@ -50,7 +50,11 @@ typedef struct scan_result_list_s
 
 typedef struct
 {
-    
+    int16_t vendor;
+    int8_t ver;
+    int8_t code;
+    int16_t temp;
+    int16_t reverse;
 }slv_adv_t;
 
 //ble_c_params default config

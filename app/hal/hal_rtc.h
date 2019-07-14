@@ -28,6 +28,6 @@ uint32_t hal_rtc_get_time(void);
 uint32_t hal_rtc_get_uptime(void);  // Time from the last reboot, in seconds
 uint32_t hal_rtc_get_boot_time(void);  // Timestamp at the last reboot, in seconds
 hal_err_t hal_rtc_set_alarm(uint32_t timestamp, hal_rtc_alarm_cb_t cb);  // Absolute timestamp in seconds
-
+hal_err_t hal_rtc_save(void);
 #endif // #ifndef __RTC_H__
 

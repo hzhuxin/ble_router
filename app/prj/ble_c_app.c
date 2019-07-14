@@ -21,6 +21,8 @@
 #include "crc16.h"
 #include "net_manage.h"
 #include "data_cache.h"
+#include "data_mgt.h"
+#include "hal_rtc.h"
 
 #define S_RUN_INDEX     15
 #define RUN_INDEX       17
@@ -30,7 +32,7 @@
 #define BLE_RECEIVE_TIMEOUT     21000
 #define NET_RESPONSE_TIMEOUT    20000
 
-DBG_SET_LEVEL(DBG_LEVEL_D);
+DBG_SET_LEVEL(DBG_LEVEL_E);
 
 #define CHECK_POINTER(p)            \
 {                                   \
@@ -44,7 +46,7 @@ static TaskHandle_t             ble_c_handle = NULL;
 //static SemaphoreHandle_t      scan_trigger_sema = NULL;
 //static uint8_t                target_addr[BLE_GAP_ADDR_LEN];
 static ble_c_t                  *ble_c = NULL;
-static char                     name[] = "CODEC_NAME\0";
+static char                     name[] = "XZL3\0";
 static uint16_t                 conn = BLE_CONN_HANDLE_INVALID;
 static scan_target_t            scan_target = SCAN_TARGET_MSG_DEFAULT;
 static connect_target_t         conn_target;
@@ -55,15 +57,15 @@ static task_cycle_opt_flag_t    opt_flag;
 static scan_result_list_t       * m_scan_result_list = NULL;
 static scan_result_list_t       * max_lvl_node = NULL;
 static uint16_t                 scan_result_cnt = 0;
-static slv_msg_t                slv;
+//static slv_msg_t                slv;
 /**@brief Parameters used when scanning. */
 static ble_gap_scan_params_t const m_scan_params =
 {
     .extended      = 0,
-    .active        = 1,
+    .active        = 0,
     .interval      = 1000,
-    .window        = 1000,
-    .timeout       = 1000,
+    .window        = 50,
+    .timeout       = 0,
     .scan_phys     = BLE_GAP_PHY_1MBPS,
     .filter_policy = BLE_GAP_SCAN_FP_ACCEPT_ALL,
 };
@@ -238,24 +240,24 @@ static int scan_rerults_all_delete(scan_result_list_t *node)
     scan_result_cnt = 0;
     return 0;
 }
-
+static void ble_c_stop_scan(void)
+{
+    DBG_I("scan timeout, stop scanning");
+    ble_c->ops->scan_stop(ble_c);
+}
 static void scan_handler(target_t const * p_content)
 {
-    //DBG_I("scan complete");
     static task_trig_t task_notify;
-    DBG_I("BLE App:scan_handler.");
     if(p_content != NULL)
     {
-        //ble_data_t *adv = p_content->data;
-        NRF_LOG_HEXDUMP_INFO(p_content->data->p_data,p_content->data->len);
-        //slv_adv_t *adv;
-        //adv-
-        //scan_result_list_insert(p_content->peer_addr->addr,(p_content->name[strlen(name)]-'0'));
+        task_notify.req_type = TASK_REQUEST_BLE_C_SCAN_OUT_DEVICE;
+        task_notify.p_content = p_content;
+        task_notify.handle = xTaskGetCurrentTaskHandle();
+        xTaskNotify(ble_c_handle, (uint32_t)&task_notify, eSetBits);
     }
     else
     {
-        DBG_I("scan timeout, stop scanning");
-        ble_c->ops->scan_stop(ble_c);
+        ble_c_stop_scan();
         memset(&task_notify,0,sizeof(task_notify));
         task_notify.req_type = TASK_REQUEST_BLE_C_SCAN_COMPLETE;
         task_notify.p_content = NULL;
@@ -326,7 +328,7 @@ void setting_ble_c_params(ble_c_params_t * p_params)
 }
 static bool ble_c_search_target(void)
 {
-    DBG_I("Start scan...");
+    static int err_cnt;
     scan_target.name = name;
     //scan_target.addr = addr;
     scan_target.scan_params = (ble_gap_scan_params_t *)&m_scan_params;
@@ -336,6 +338,22 @@ static bool ble_c_search_target(void)
     {
         DBG_I("BLE App:Start scan success");
         return true;
+    }
+    else
+    {
+        if(err_cnt++ >=3 )
+        {
+            hal_cpu_reset();
+        }
+        else
+        {
+            task_trig_t task_notify;
+            task_notify.req_type = TASK_REQUEST_BLE_C_SCAN_COMPLETE;
+            task_notify.p_content = NULL;
+            task_notify.handle = ble_c_handle;
+            xTaskNotify(ble_c_handle, (uint32_t)&task_notify, eSetBits);
+        }
+        
     }
     DBG_E("BLE App:Start scan failed");
     return false;
@@ -402,7 +420,7 @@ static void ble_c_receive_handler(task_data_t *arg)
     task_notify.req_type = TASK_REQUEST_UPLOAD_VIA_NET;
     task_notify.p_content = (void *)arg;
     task_notify.handle = ble_c_handle;
-    xTaskNotify(get_net_handle(), (uint32_t)&task_notify, eSetBits);
+    //xTaskNotify(get_net_handle(), (uint32_t)&task_notify, eSetBits);
     opt_flag.up_load = 1;
     DBG_I("----blec received from slave(0x%x),len=%d---:\r\n",arg,arg->length);
 }
@@ -427,6 +445,30 @@ static bool searched_result_handler(void)
     //}while(!ble_c_connect_target());//if connect failed, connect next device
     return true;
 }
+static void save_device(void *p_content)
+{
+    target_t * target = (target_t *)p_content;
+    ble_data_t *adv_data = (ble_data_t *)target->data;
+    if(adv_data->len < (sizeof(slv_adv_t) + 5))
+    {
+        DBG_W("BLE App: scan out data length invalid<%d>",adv_data->len);
+        return;
+    }
+    slv_adv_t *adv = (slv_adv_t *)(adv_data->p_data+5);
+    slv_msg_t dev;
+    memcpy(dev.mac, target->peer_addr->addr,6);
+    dev.temp = adv->temp;
+    dev.rssi = target->rssi;
+    dev.vol = 4230;
+    dev.timestamp = hal_rtc_get_time();
+    // DBG_D("BLE App: scan dev mac: %02x:%02x:%02x:%02x:%02x:%02x:",
+    //             dev.mac[0],dev.mac[1],dev.mac[2],dev.mac[3],dev.mac[4],dev.mac[5]);
+    // DBG_D("BLE App: scan dev temp = %d",dev.temp);
+    //DBG_D("BLE App: scan dev rssi = %d",dev.rssi);
+
+    
+    send_msg_to_cache_queue(&dev);
+}
 static void ble_c_handle_task(void *arg)
 {
     DBG_I("ble_c_handle_task startup\r\n");
@@ -447,14 +489,26 @@ static void ble_c_handle_task(void *arg)
     DBG_I("ble_c init ok\r\n");       
     static task_trig_t *notify_value = NULL;
     TickType_t wait_tick = portMAX_DELAY;
-    //memset(&opt_flag,0,sizeof(opt_flag));
+
     scan_result_list_init();
     ble_c_search_target();
     while(1)
     {
-        DBG_I("BLE App: waiting notify\r\n"); 
         if(xTaskNotifyWait( 0,ULONG_MAX,(uint32_t *)&notify_value,wait_tick ) == pdPASS)
-        {}
+        {
+            switch(notify_value->req_type)
+            {
+                case TASK_REQUEST_BLE_C_SCAN_COMPLETE:
+                    vTaskDelay(5000);
+                    ble_c_search_target();
+                    break;
+                case TASK_REQUEST_BLE_C_SCAN_OUT_DEVICE:
+                    save_device(notify_value->p_content);
+                    break;
+                default:
+                    break;
+            }
+        }
     } 
 }
 

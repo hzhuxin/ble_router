@@ -41,7 +41,7 @@
 
 #define LOCK_TIMEOUT    pdMS_TO_TICKS(2000)
 
-DBG_SET_LEVEL(DBG_LEVEL_D);
+DBG_SET_LEVEL(DBG_LEVEL_W);
 
 #define CHECK_OBJ(obj)                  \
 {                                       \
@@ -237,6 +237,7 @@ bool scan_start(void)
     return true;
     //DBG_I("start scanning...");
 }
+
 bool scan_stop(void)
 {
     ret_code_t err_code;
@@ -279,8 +280,8 @@ static bool check_scan_advdata( char    **const p_name,
     if ((data_offset != 0)&& (parsed_name_len != 0))
     {
         *(p_parsed_name+parsed_name_len)= 0;
-        // DBG_I("\r\n%s",p_parsed_name);
-        DBG_I("%02x:%02x:%02x:%02x:%02x:%02x\r\n",
+        DBG_D("\r\n%s",p_parsed_name);
+        DBG_D("%02x:%02x:%02x:%02x:%02x:%02x\r\n",
                              peer_addr->addr[0],
                              peer_addr->addr[1],
                              peer_addr->addr[2],
@@ -336,28 +337,19 @@ static bool check_scan_advdata( char    **const p_name,
 static void on_adv_report(ble_gap_evt_adv_report_t const * p_adv_report)
 {
     char *target_name = NULL;
-    DBG_I("on_adv_report:%s\r\n",target_name)
     bool ret = check_scan_advdata(&target_name,\
                                   p_adv_report->data.p_data, \
                                   p_adv_report->data.len, \
                                   &p_adv_report->peer_addr);
     if(ret)
     {
-        DBG_I("\r\n%s",target_name);
-        DBG_I("%02x:%02x:%02x:%02x:%02x:%02x\r\n",
-                             p_adv_report->peer_addr.addr[0],
-                             p_adv_report->peer_addr.addr[1],
-                             p_adv_report->peer_addr.addr[2],
-                             p_adv_report->peer_addr.addr[3],
-                             p_adv_report->peer_addr.addr[4],
-                             p_adv_report->peer_addr.addr[5]
-                             );
         if(m_target_msg.handler != NULL)
         {
             target_t target;
             target.name         = (char *)target_name;
             target.peer_addr    = (ble_gap_addr_t*)&p_adv_report->peer_addr;
             target.data         = &p_adv_report->data;
+            target.rssi         = p_adv_report->rssi;
             m_target_msg.handler(&target);
         }
         else if(sema_scan != NULL)
@@ -1016,6 +1008,7 @@ hal_err_t ble_c_get_mtu(ble_c_t *obj, uint16_t conn_handle)
     }
     return mtu;
 }
+
 ble_c_t* ble_c_get_instance(int id) 
 {
     static const ble_c_ops_t ops = 

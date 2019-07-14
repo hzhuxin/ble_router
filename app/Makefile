@@ -1,10 +1,11 @@
 #GNU_INSTALL_ROOT := C:/Program Files/GNU Tools ARM Embedded/7 2017-q4-major/bin/
-GNU_INSTALL_ROOT := arm-none-eabi
+#GNU_INSTALL_ROOT := arm-none-eabi
 PROJECT_NAME     := ble_router
 TARGETS          := nrf52840_xxaa
 OUTPUT_DIRECTORY := _build
 
-SDK_ROOT := ../sdk
+BOOT_ROOT := ../sdk15_0/examples/dfu/secure_bootloader/pca10056_ble/armgcc/_build/nrf52840_xxaa_s140.hex
+SDK_ROOT := ../sdk15_0
 HAL_ROOT := ./hal
 BLE_ROOT := ./ble
 UTIL_ROOT:= ./util
@@ -81,6 +82,10 @@ SRC_FILES += \
   $(SDK_ROOT)/components/ble/peer_manager/security_manager.c \
   $(SDK_ROOT)/components/ble/ble_services/ble_rscs/ble_rscs.c \
   $(SDK_ROOT)/components/ble/ble_services/ble_rscs_c/ble_rscs_c.c \
+  $(SDK_ROOT)/components/libraries/bootloader/dfu/nrf_dfu_svci.c \
+  $(SDK_ROOT)/components/ble/ble_services/ble_dfu/ble_dfu.c \
+  $(SDK_ROOT)/components/ble/ble_services/ble_dfu/ble_dfu_bonded.c \
+  $(SDK_ROOT)/components/ble/ble_services/ble_dfu/ble_dfu_unbonded.c \
   $(SDK_ROOT)/components/softdevice/common/nrf_sdh.c \
   $(SDK_ROOT)/components/softdevice/common/nrf_sdh_ble.c \
   $(SDK_ROOT)/components/softdevice/common/nrf_sdh_soc.c \
@@ -138,6 +143,8 @@ INC_FOLDERS += \
   $(SDK_ROOT)/integration/nrfx/legacy \
   $(SDK_ROOT)/components/libraries/experimental_mpu \
   $(SDK_ROOT)/components/libraries/usbd \
+  $(SDK_ROOT)/components/libraries/bootloader \
+  $(SDK_ROOT)/components/libraries/bootloader/dfu \
   $(SDK_ROOT)/components/ble/ble_services/ble_lbs \
   $(SDK_ROOT)/components/ble/ble_services/ble_cts_c \
   $(SDK_ROOT)/components/libraries/delay \
@@ -188,6 +195,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/ble/nrf_ble_gatt \
   $(SDK_ROOT)/modules/nrfx/hal \
   $(SDK_ROOT)/components/libraries/bootloader/ble_dfu \
+  $(SDK_ROOT)/components/libraries/svc \
   $(SDK_ROOT)/components/libraries/pwr_mgmt \
   $(SDK_ROOT)/components/nfc/t4t_lib/hal_t4t \
   $(SDK_ROOT)/components/nfc/ndef/connection_handover/ble_pair_lib \
@@ -282,6 +290,8 @@ CFLAGS += -DCONFIG_NFCT_PINS_AS_GPIOS
 CFLAGS += -DFLOAT_ABI_HARD
 CFLAGS += -DFREERTOS
 CFLAGS += -DNRF52840_XXAA
+CFLAGS += -DNRF_DFU_SVCI_ENABLED
+CFLAGS += -DNRF_DFU_TRANSPORT_BLE=1
 CFLAGS += -DNRF52_PAN_74
 CFLAGS += -DNRF_SD_BLE_API_VERSION=6
 CFLAGS += -DS140
@@ -309,6 +319,8 @@ ASMFLAGS += -DBOARD_PCA10056
 ASMFLAGS += -DCONFIG_NFCT_PINS_AS_GPIOS
 ASMFLAGS += -DFLOAT_ABI_HARD
 ASMFLAGS += -DNRF52840_XXAA
+ASMFLAGS += -DNRF_DFU_SVCI_ENABLED
+ASMFLAGS += -DNRF_DFU_TRANSPORT_BLE=1
 ASMFLAGS += -DNRF52_PAN_74
 ASMFLAGS += -DNRF_SD_BLE_API_VERSION=6
 ASMFLAGS += -DS140
@@ -371,6 +383,23 @@ sd:
 
 e:
 	nrfjprog -f nrf52 --eraseall
+
+DFU_ROOT := ./dfu
+pkg:$(OUTPUT_DIRECTORY)/nrf52840_xxaa.hex
+	nrfutil settings generate --family NRF52840 --application $(OUTPUT_DIRECTORY)/nrf52840_xxaa.hex --application-version 1 --bootloader-version 1 --bl-settings-version 1 $(DFU_ROOT)/setting.hex
+	mergehex -m $(DFU_ROOT)/sdk.hex $(DFU_ROOT)/boot.hex -o $(DFU_ROOT)/sd_boot.hex
+	mergehex -m $(DFU_ROOT)/sd_boot.hex $(OUTPUT_DIRECTORY)/nrf52840_xxaa.hex -o $(DFU_ROOT)/sd_boot_app.hex
+	mergehex -m $(DFU_ROOT)/sd_boot_app.hex $(DFU_ROOT)/setting.hex -o $(DFU_ROOT)/out.hex
+	rm $(DFU_ROOT)/setting.hex
+	rm $(DFU_ROOT)/sd_boot.hex
+	rm $(DFU_ROOT)/sd_boot_app.hex
+	nrfutil pkg generate --application $(OUTPUT_DIRECTORY)/nrf52840_xxaa.hex --application-version 0x01 --hw-version 52 --sd-req 0xA9 --key-file $(DFU_ROOT)/priv.pem $(DFU_ROOT)/r_app.zip
+ota: $(DFU_ROOT)/out.hex
+	nrfjprog -f nrf52 --program $< --sectorerase --reset
+#ota:$(DFU_ROOT)/out.hex
+  #nrfutil.exe keys generate priv.key
+  #nrfutil keys display --key pk --format code priv.key --out_file dfu_public_key.c
+	#nrfjprog -f nrf52 --program $< --sectorerase --verify --reset
 
 SDK_CONFIG_FILE := ./config/sdk_config.h
 CMSIS_CONFIG_TOOL := $(SDK_ROOT)/external_tools/cmsisconfig/CMSIS_Configuration_Wizard.jar

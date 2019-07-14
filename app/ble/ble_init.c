@@ -45,6 +45,7 @@
 #include "ble_s_obj.h"
 #include "app_cfg.h"
 
+
 #define MANUFACTURER_NAME               "DRUID"                       /**< Manufacturer. Will be passed to Device Information Service. */
 #define APP_ADV_INTERVAL                800                                         /**< The advertising interval (in units of 0.625 ms). This value corresponds to 187.5 ms. */
 
@@ -63,7 +64,7 @@
 #define SEC_PARAM_MIN_KEY_SIZE          7                                           /**< Minimum encryption key size in octets. */
 #define SEC_PARAM_MAX_KEY_SIZE          16                                          /**< Maximum encryption key size in octets. */
 
-
+#define DUF_ENABLE  1
 /**@brief   Priority of the application BLE event handler.
  * @note    You shouldn't need to modify this value.
  */
@@ -542,7 +543,20 @@ static void advertising_start(void * p_erase_bonds)
         APP_ERROR_CHECK(err_code);
     }
 }
-
+void scanning_start(bool * p_erase_bonds)
+{
+    // Start scanning for peripherals and initiate connection
+    // with devices that advertise GATT Service UUID.
+    if (*p_erase_bonds == true)
+    {
+        // Scan is started by the PM_EVT_PEERS_DELETE_SUCCEEDED event.
+        delete_bonds();
+    }
+    else
+    {
+        scan_start();
+    }
+}
 void ble_init(bool *erase_bonds)
 {
     ble_stack_init();  
@@ -563,6 +577,8 @@ void ble_init(bool *erase_bonds)
     nrf_sdh_freertos_init(advertising_start, erase_bonds);
 #else
     nrf_sdh_freertos_init(NULL, erase_bonds);
+    
 #endif //BLE_SLV_ENABLED
+    scanning_start(erase_bonds);
 }
 

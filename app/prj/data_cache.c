@@ -16,7 +16,7 @@
 
 #define CACHE_DEFAULT_SIZE      100000
 #define MAX_LIST_NUMBER         500
-#define DEALAY_UPLOAD_TIME  (15 * 60 * 1000)
+#define DEALAY_UPLOAD_TIME      (15*60)
 
 #define CHECK_LOCK()    \
     do                      \
@@ -27,9 +27,10 @@
             return -1;      \
         }                   \
     } while (0);
-    
 
-DBG_SET_LEVEL(DBG_LEVEL_D);
+#define TEST    0
+
+DBG_SET_LEVEL(DBG_LEVEL_I);
 
 static SemaphoreHandle_t    lock = NULL;
 typedef struct
@@ -69,9 +70,34 @@ int32_t cache_init(void)
     xSemaphoreGive(lock);
     return 0;
 }
+
+#include <stdlib.h>
+void cache_generate_dev_for_test(slv_msg_t *dev)
+{
+    static int dt = 1;
+    dev->mac[0] = (rand() * dt & 0xff) + 1;
+    dev->mac[1] = (rand() * dt & 0xff) + 2;
+    dev->mac[2] = (rand() * dt & 0xff) + 3;
+    dev->mac[3] = (rand() * dt & 0xff) + 4;
+    dev->mac[4] = (rand() * dt & 0xff) + 5;
+    dev->mac[5] = (rand() * dt & 0xff) + 6;
+    dev->temp = (dt * 299) % 33;
+    dev->rssi = (dt * 666) % 200;
+    dev->vol = (dt * 4267) % 4200;
+    dev->timestamp = hal_rtc_get_time();
+    dt++;
+}
+void cache_insert_dev_for_test(void)
+{
+    static slv_msg_t dev;
+    for(uint8_t i=0;i<10;i++)
+    {
+        cache_generate_dev_for_test(&dev);
+        cache_insert_list(&dev);
+    }
+}
 int32_t cache_insert_list(slv_msg_t *new_node)
 {
-    DBG_D("Dgt: cache_insert_list");
     if(cache_list.cnt >= MAX_LIST_NUMBER)
     {
         DBG_W("Cached slave messages are reached max!!!\r\n");
@@ -89,7 +115,8 @@ int32_t cache_insert_list(slv_msg_t *new_node)
     {
         memcpy(&node->data,new_node,sizeof(slv_msg_t));
         node->update_flag = 1;
-        DBG_I("Cache node[%02x:%02x:%02x:%02x:%02x:%02x] is exit, update flag=1",
+        //DBG_I("Cache exist cnt = %d",cache_list.cnt);
+        DBG_D("Cache update node[%02x:%02x:%02x:%02x:%02x:%02x] is exit, update flag=1",
                 new_node->mac[0],
                 new_node->mac[1],
                 new_node->mac[2],
@@ -98,7 +125,7 @@ int32_t cache_insert_list(slv_msg_t *new_node)
                 new_node->mac[5]);
         return 0;
     }
-    node = (slv_msg_lst_t *)pvPortMalloc(sizeof(slv_msg_t *));
+    node = (slv_msg_lst_t *)pvPortMalloc(sizeof(slv_msg_lst_t));
     if(!node)
     {
         DBG_E("Cache malloc node fail\r\n");
@@ -119,14 +146,15 @@ int32_t cache_insert_list(slv_msg_t *new_node)
         cache_list.end = node;
         cache_list.cnt++;
     }
-     DBG_I("Cache insert new node[%02x:%02x:%02x:%02x:%02x:%02x]",
+    DBG_I("Cache insert device[%02x:%02x:%02x:%02x:%02x:%02x]",
                 node->data.mac[0],
                 node->data.mac[1],
                 node->data.mac[2],
                 node->data.mac[3],
                 node->data.mac[4],
                 node->data.mac[5]);
-    //cache_unlock();
+    DBG_I("Cache list cnt = %d",cache_list.cnt);
+
     return 0;
 }
 slv_msg_lst_t * cache_search_list(slv_msg_t *msg)
@@ -173,7 +201,6 @@ int32_t cache_list_update_upload_state(slv_msg_lst_t *node[],int node_num)
         DBG_E("Cache:There is no data in cache list,func: %s line: %d\r\n",__func__,__LINE__);
         return -2;
     }
-    DBG_D("Dgt: Cache_list_update_upload_state\r\n");
     slv_msg_lst_t *p_list = cache_list.head;
     int32_t i=0;
     for(;(i<node_num && p_list); p_list = p_list->next)
@@ -186,32 +213,31 @@ int32_t cache_list_update_upload_state(slv_msg_lst_t *node[],int node_num)
             i++;
         }
     }
+    DBG_I("Cache update upload time over, %d devices update",i);
     return 0;
 }
 int32_t cache_read_list_by_time(slv_msg_lst_t *buf[], int32_t number)
 {
-    if(!number || number > cache_list.cnt)
+    if(number <=0)
     {
-        DBG_W("Cache read number is illegal\r\n");
+        DBG_W("Cache read number is illegal or 0\r\n");
         return -1;
     }
-    //CHECK_LOCK();
-    //number = number > size? size:number;
-    //slv_msg_lst_t *p_buf = buf;
+    number = (number > cache_list.cnt)? cache_list.cnt:number;
+
     slv_msg_lst_t *p_list = cache_list.head;
     int32_t i=0;
     for(;(i<number && p_list); p_list = p_list->next)
     {
-        if((p_list->data.temp > p_list->upload_time)&&
-           (p_list->data.temp - p_list->upload_time) >= DEALAY_UPLOAD_TIME)
+        DBG_D("Dgt: read dev msg by time: update_timestamp-upload time= %d",(p_list->data.timestamp-p_list->upload_time));
+        if((p_list->data.timestamp > p_list->upload_time)&&
+           (p_list->data.timestamp - p_list->upload_time) >= DEALAY_UPLOAD_TIME)
         {
-            //memcpy(p_buf,&p_list->data,sizeof(slv_msg_t));
-            //p_buf += sizeof(slv_msg_lst_t);
             buf[i] = p_list;
             i++;
         }
     }
-    cache_unlock();
+    //cache_unlock();
     return i;
 }
 int32_t cache_delete_all_list(void)

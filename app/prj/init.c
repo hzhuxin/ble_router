@@ -48,7 +48,7 @@ static void wdt_handle_task(void *arg)
 {
     static hal_wdt_cfg_t cfg = 
     {
-      .timeout = 30000,
+      .timeout = 10000,
       .stop_when_sleep = 0,
       .stop_when_debug = 0,
     };
@@ -58,7 +58,7 @@ static void wdt_handle_task(void *arg)
     {
         DBG_D("...watch dog feed...");
         hal_wdt_feed();
-        vTaskDelay(20000);
+        vTaskDelay(8000);
     }
 }
 void create_wdt_task(void)
@@ -73,25 +73,31 @@ void creat_app_task(void)
     //create_setting_rights_task();
     create_ble_c_task();
     //create_ble_s_task();
-    //create_net_manage_task();
-    //create_data_mgt_task();
-    //create_wdt_task();
+    create_net_manage_task();
+    create_data_mgt_task();
+    create_wdt_task();
 }
 void init_handle_task(void *arg)
 {
     DBG_I("init_handle_task startup");
     hal_pin_set_mode(G_RUN_INDEX,HAL_PIN_MODE_OUT);
-    hal_pin_write(G_RUN_INDEX,HAL_PIN_LVL_HIGH);
+    hal_pin_write(G_RUN_INDEX,HAL_PIN_LVL_LOW);
     //static task_trig_t task_notify;
     //hal_rtc_set_time(1562422578);
     creat_app_task();
+    TickType_t time = xTaskGetTickCount();
     while(1)
+    {
+        hal_pin_write(G_RUN_INDEX,HAL_PIN_LVL_LOW);
+        vTaskDelay(pdMS_TO_TICKS(10));
+        hal_pin_write(G_RUN_INDEX,HAL_PIN_LVL_HIGH);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        if((xTaskGetTickCount() - time)/1000 >= 600)
         {
-            hal_pin_write(G_RUN_INDEX,HAL_PIN_LVL_LOW);
-            vTaskDelay(50);
-            hal_pin_write(G_RUN_INDEX,HAL_PIN_LVL_HIGH);
-            vTaskDelay(1000);
+            hal_rtc_save();
+            time = xTaskGetTickCount();
         }
+    }
 }
 void creat_init_task(void)
 { 

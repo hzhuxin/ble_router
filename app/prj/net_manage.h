@@ -19,7 +19,8 @@ typedef enum
 typedef struct 
 {
     int32_t len;
-    uint8_t data[0];
+    //uint8_t data[0];
+    uint8_t data[NET_QUEUE_DEFAULT_LENGTH];
 }msg_t;
 
 void create_net_manage_task(void);

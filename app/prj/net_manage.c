@@ -28,19 +28,19 @@
 /*********************************defines***************************************/
 #define B_NET_INDEX     NRF_GPIO_PIN_MAP(1,9)
 
-DBG_SET_LEVEL(DBG_LEVEL_D);
+DBG_SET_LEVEL(DBG_LEVEL_E);
 
 char const NET_SET_MODE[] = "AT+WKMOD=\"NET\"\r\n\0";
 //char const *NET_SET_MODE[]  =      "AT+WKMOD=\"HTTPD\"\r\n\0";
 char const NET_EN_SOCKET_A[]  =   "AT+SOCKAEN=\"on\"\r\n\0";
 char const NET_SET_SERVER[]   =  "AT+SOCKA=\"TCP\",\"https://api.xinaitech.com/api/5d10a932ea612\"\r\n\0";
 char const NET_SAVE_CFG[]    =    "AT+S\r\n\0";
-
+char const NET_RES_SUCCESS[] = "{\"code\":1,\"msg\":\"Success\",\"data\":{\"timestamp\":\0";
 static TaskHandle_t net_handle = NULL;
 static QueueHandle_t net_msg_queue = NULL;
 static SemaphoreHandle_t    sema = NULL;
 static hal_uart_t   *uart = NULL;
-static xfer_t  xfer = {0,0,0};
+static msg_t  msg_buf;
 /**********************************functions**************************************/
 int32_t uart_init(void)
 {
@@ -101,12 +101,46 @@ int32_t net_dev_init(void)
     DBG_I("Net device init over");
     return 0;
 }
+int32_t net_string_to_dec(char *str,char endc)
+{
+    int32_t timestamp = 0;
+    while(*str != endc)
+    {
+        timestamp = timestamp * 10 + (*str - '0');
+        str++;
+    }
+    return timestamp;
+}
+int32_t net_parse_response_msg(void *msg, int32_t len)
+{
+    if(!msg || len <= 0)
+    {
+        DBG_E("Net parse msg=NULL, ort len<= 0");
+        return -1;
+    }
+    char *res;
+    res = strstr((char *)msg, NET_RES_SUCCESS);
 
+    if(res)
+    {
+        int32_t timestamp, rtc;
+        timestamp = net_string_to_dec(res+strlen(NET_RES_SUCCESS),'}');
+        rtc = hal_rtc_get_time();
+        DBG_I("Net: response success, timestamp = %d, and RTC = %d",timestamp,rtc);
+        if(abs(timestamp - rtc) > 3 && timestamp > 1562422578)
+        {
+            hal_rtc_set_time(timestamp);
+        }
+        return 0;
+    }
+    return -2;
+}
 int32_t net_wait_res(uint8_t *buf, int32_t buf_size)
 {
-    int32_t time = 8;
+    int32_t time = 10;
     int32_t len = 0;
     //while(!util_timeout(start, xTaskGetTickCount(), 10000))
+    DBG_I("Net waiting response... 10S\r\n");
     while(time-- > 0)
     {
         DBG_D("Net waiting response... %d S\r\n",time);
@@ -120,27 +154,30 @@ int32_t net_wait_res(uint8_t *buf, int32_t buf_size)
     }
     return -1;
 }
-int32_t net_upload(uint8_t *p_data, int32_t len)
+int32_t net_upload(void *p_data, int32_t len)
 {
     if(!p_data)
     {
         DBG_E("net upload pointer is NULL\r\n");
         return -1;
     }
-    DBG_D("Net: uploading data");
-    if(uart_write(p_data,len) != len)
+    DBG_I("Net upload: %s\r\n",(char *)p_data);
+    int ret = uart_write(p_data,len);
+    if(ret != len)
     {
-        DBG_E("net upload failed\r\n");
+        DBG_E("net upload failed, return %d(%d is ok)\r\n",ret,len);
         return -2;
     }
-    xfer.len = net_wait_res(p_data,NET_QUEUE_DEFAULT_LENGTH);
-    if(xfer.len > 0)
+    len = net_wait_res(p_data,NET_QUEUE_DEFAULT_LENGTH);
+    if(len > 0)
     {
-        DBG_D("Net: received server response");
-        xQueueSendToBack(net_msg_queue, p_data, 1000);
-        //xTaskNotify(get_ble_c_task_handle(), (uint32_t)&task_notify, eSetBits);
-        //xSemaphoreGive(sema);
-        return xfer.len;
+        if(net_parse_response_msg(p_data,len) >=0)
+        {
+            //xQueueSendToBack(net_msg_queue, p_data, 1000);
+            //xTaskNotify(get_ble_c_task_handle(), (uint32_t)&task_notify, eSetBits);
+            xSemaphoreGive(sema);
+            return len;
+        }
     }
     else
     {
@@ -151,13 +188,13 @@ int32_t net_upload(uint8_t *p_data, int32_t len)
 }
 int32_t net_recv(void)
 {
-    xfer.len = uart_read(xfer.data,xfer.max_size);
-    if(xfer.len > 0)
+    msg_buf.len = uart_read(msg_buf.data,NET_QUEUE_DEFAULT_LENGTH);
+    if(msg_buf.len > 0)
     {
-        DBG_D("Net received <%d bytes>message\r\n",xfer.len);
+        DBG_I("Net received <%d bytes>message\r\n",msg_buf.len);
         //xQueueSendToBack(net_msg_queue, xfer, 1000);
         xSemaphoreGive(sema);
-        return xfer.len ;
+        return msg_buf.len ;
     }
     return -1;
 }
@@ -179,27 +216,23 @@ void net_handle_task(void *arg)
     xSemaphoreTake(sema,pdMS_TO_TICKS(10));
     net_dev_init();
     uint32_t cnt=0;
-    uint8_t msg[NET_QUEUE_DEFAULT_LENGTH];
-    msg_t *p_msg = (msg_t *)msg;
+    // uint8_t msg[NET_QUEUE_DEFAULT_LENGTH];
+    // msg_t *p_msg = (msg_t *)msg;
     hal_pin_set_mode(B_NET_INDEX,HAL_PIN_MODE_OUT);
     hal_pin_write(B_NET_INDEX,HAL_PIN_LVL_HIGH);
 
     while(1)
     {
+        memset(&msg_buf,0,sizeof(msg_buf));
         //if(xQueueReceive(net_msg_queue,&xfer,portMAX_DELAY) == pdPASS)
-        if(xQueueReceive(net_msg_queue, p_msg, pdMS_TO_TICKS(2000)) == pdPASS)
+        if(xQueueReceive(net_msg_queue, &msg_buf, pdMS_TO_TICKS(2000)) == pdPASS)
         {
-            //xfer_pkg_t *pkg = (xfer_pkg_t *)p_msg->data;
-            //DBG_I("Net task received:");
-            //NRF_LOG_HEXDUMP_INFO(msg,36);
-            DBG_D("Net: p_msg->len=%d",p_msg->len);
-            net_upload(msg,xfer.len);
+            //DBG_D("Net: p_msg->len=%d",p_msg->len);
+            //DBG_D("Net: recv: %s",p_msg->data);
+            hal_pin_write(B_NET_INDEX,HAL_PIN_LVL_LOW);
+            net_upload(&msg_buf.data,msg_buf.len);
+            hal_pin_write(B_NET_INDEX,HAL_PIN_LVL_HIGH);
         }
-        
-        hal_pin_write(B_NET_INDEX,HAL_PIN_LVL_LOW);
-        vTaskDelay(5);
-        hal_pin_write(B_NET_INDEX,HAL_PIN_LVL_HIGH);
-        //DBG_I("Net task working count %d",cnt++);
     }
 }
 void create_net_manage_task(void)

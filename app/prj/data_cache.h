@@ -32,6 +32,7 @@ typedef struct
     uint8_t *data;
 }xfer_t;
 
+void cache_insert_dev_for_test(void);
 int32_t cache_init(void);
 int32_t cache_insert_list(slv_msg_t *new_node);
 slv_msg_lst_t * cache_search_list(slv_msg_t *msg);

@@ -11,10 +11,17 @@
 /* Includes ------------------------------------------------------------------*/
 #include "nrfx_rtc.h"
 #include "hal_rtc.h"
-
+#include "nrf_fstorage.h"
+#include "debug.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
+#include "task.h"
 /* Defines -------------------------------------------------------------------*/
 #define RTC_INST_IDX             2
+#define RTC_MEMORY_START          (0xA0000)
+#define RTC_MEMORY_SIZE          (4096)
 
+DBG_SET_LEVEL(DBG_LEVEL_I);
 /* Typedefs ------------------------------------------------------------------*/
 typedef struct rtc_backup {
   uint32_t time;
@@ -31,7 +38,7 @@ static rtc_backup_t* _backup = (rtc_backup_t*) 0x2000fff8;
 static nrfx_rtc_t _rtc = NRFX_RTC_INSTANCE(RTC_INST_IDX);
 static volatile uint32_t _base = 0; // Base time in seconds
 static volatile uint32_t _overflow = 0; // Number of overflows
-
+static nrf_fstorage_t _fstorage;
 /* Private functions ---------------------------------------------------------*/
 static void rtc_callback(nrfx_rtc_int_type_t evt) {
   if(evt == NRFX_RTC_INT_OVERFLOW) {
@@ -40,7 +47,81 @@ static void rtc_callback(nrfx_rtc_int_type_t evt) {
 }
 
 /* Global functions ----------------------------------------------------------*/
+static uint8_t fstorage_done_flag = 0;
+static xSemaphoreHandle sema = NULL;
+static void fstorage_evt_handler(nrf_fstorage_evt_t * p_evt)
+{
+  xSemaphoreGiveFromISR(sema, NULL);
+}
 
+void rtc_memory_init(void)
+{
+  if(!sema)
+  {
+    sema = xSemaphoreCreateBinary();
+    xSemaphoreTake(sema,0);
+  }
+  extern nrf_fstorage_api_t nrf_fstorage_sd;
+  nrf_fstorage_t *fs= &_fstorage;
+  fs->evt_handler = fstorage_evt_handler;
+  fs->start_addr = RTC_MEMORY_START;
+  fs->end_addr   = fs->start_addr + RTC_MEMORY_SIZE; // 4k
+  nrf_fstorage_init(fs, &nrf_fstorage_sd, fstorage_evt_handler);
+
+}
+int32_t rtc_read_memory(void)
+{
+  int32_t utc;
+  nrf_fstorage_t *fs= &_fstorage;
+  nrf_fstorage_read(fs, RTC_MEMORY_START, &utc, 4);
+  return utc;
+}
+
+hal_err_t hal_rtc_save(void)
+{
+  uint32_t utc = hal_rtc_get_time();
+  ret_code_t ret;
+  nrf_fstorage_t *fs= &_fstorage;
+  xSemaphoreTake(sema,0);
+  ret = nrf_fstorage_erase(fs, RTC_MEMORY_START, 1, NULL);
+  if(ret != NRF_SUCCESS)
+  {
+    DBG_E("Save RTC of erase failed, return %d",ret);
+    return -ret;
+  }
+  if(!xSemaphoreTake(sema,pdMS_TO_TICKS(5000)))
+  {
+    DBG_E("Save RTC of erase timeout 5S");
+    return -1;
+  }
+
+  xSemaphoreTake(sema,0);
+  ret = nrf_fstorage_write(fs, RTC_MEMORY_START, &utc, 4, NULL);
+  if(ret != NRF_SUCCESS)
+  {
+    DBG_E("Save RTC of write failed return %d",ret);
+    return -ret;
+  }
+  if(!xSemaphoreTake(sema,pdMS_TO_TICKS(5000)))
+  {
+    DBG_E("Save RTC of write timeout 5S");
+    return -2;
+  }
+  uint32_t temp;
+  ret = nrf_fstorage_read(fs, RTC_MEMORY_START, &temp, 4);
+  if(ret != NRF_SUCCESS)
+  {
+    DBG_E("Save RTC of read failed return %d",ret);
+    return -ret;
+  }
+  if(utc != temp)
+  {
+    DBG_E("Save RTC failed, write<%d>, read<%d>",utc, temp);
+    return -3;
+  }
+  DBG_I("Save RTC<%d> OK",utc);
+  return 0;
+}
 /**
  * @brief Init rtc
  *
@@ -62,6 +143,14 @@ hal_err_t hal_rtc_init(void) {
   nrfx_rtc_overflow_enable(&_rtc, true);
   nrfx_rtc_enable(&_rtc);
 
+  int32_t utc;
+  rtc_memory_init();
+  utc = rtc_read_memory();
+  DBG_I("--------Hal RTC read %d(0x%x)------\r\n",utc,utc);
+  if(utc > 0)
+  {
+    hal_rtc_set_time(utc);
+  }
   return HAL_ERR_OK;
 }
 
@@ -73,8 +162,11 @@ hal_err_t hal_rtc_init(void) {
  * @return HAL_ERR_OK if success
  */
 hal_err_t hal_rtc_set_time(uint32_t time) {
-  _base = time - hal_rtc_get_uptime();
+  // if(time == hal_rtc_get_time())
+  //   return HAL_ERR_OK;
 
+  _base = time - hal_rtc_get_uptime();
+  hal_rtc_save();
   return HAL_ERR_OK;
 }
 

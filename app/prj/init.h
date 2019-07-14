@@ -27,6 +27,7 @@ typedef enum
     TASK_REQUEST_BLE_C_START_SCAN_RECEIVE,    //cycle to scan valid device around the router, if scanned, then connect and receive the data and upload
     TASK_REQUEST_BLE_C_STOP_SCAN_RECEIVE,     //stop cycle scanning & connection & receiving
     TASK_REQUEST_BLE_C_SCAN_TO_SAVE_TARGET,       //save the target message after scaned the device
+    TASK_REQUEST_BLE_C_SCAN_OUT_DEVICE,
     TASK_REQUEST_BLE_C_SCAN_COMPLETE,
     TASK_REQUEST_BLE_C_CONNECTED,
     TASK_REQUEST_BLE_C_DISCONNECTED,

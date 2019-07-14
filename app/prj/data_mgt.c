@@ -24,6 +24,9 @@
 #define XFER_SLV_DEFAULT_NUM    (XFER_JSON_MAX_CHAR_LEN/sizeof(slv_msg_t)-1)
 #define XFER_SLV_BYTES          (XFER_SLV_DEFAULT_NUM* sizeof(slv_msg_t))  
 
+//for test
+#define TEST 0
+
 DBG_SET_LEVEL(DBG_LEVEL_D);
 
 static const char gateway[] = "{\"gateway\":\"\0";
@@ -43,6 +46,9 @@ static QueueHandle_t    msg_queue = NULL;
 static int32_t int_bits(int32_t dt)
 {
     int32_t i=0;
+
+    i = (dt < 0)? (1):(0);
+
     while(dt)
     {
         dt /= 10;
@@ -60,13 +66,27 @@ static int32_t int_bits(int32_t dt)
     }
     return i;
 }*/
+#if TEST
+static const router_msg_t router  = 
+{
+    .mac = {0x11,0x11,0x11,0x11,0x11,0x11},
+    .vol = 3970,
+    .timestamp = 123456789,
+};
+static int32_t update_router_msg(router_msg_t *msg)
+{
+    memcpy(msg,&router,sizeof(router_msg_t));
+    return sizeof(router_msg_t);
+}
+#else //TEST
 static int32_t update_router_msg(router_msg_t *msg)
 {
     memcpy(&msg->mac,hal_cpu_get_mac(),6);
     msg->timestamp = hal_rtc_get_time();
-    msg->vol = 3970;
+    msg->vol = 4000;
     return sizeof(router_msg_t);
 }
+#endif //TEST
 static int32_t router_msg_head_to_json(char *json,int32_t size)
 {
     if(!json || size < 120)
@@ -124,14 +144,6 @@ static int32_t dev_msg_to_json(char *json,int32_t size,slv_msg_lst_t *dev_msg[],
         }
         p[i++] = '{';
         //device mac
-        DBG_D("Dgt:json: msg->mac=%2x:%2x:%2x:%2x:%2x:%2x\r\n",
-                      msg->mac[0],
-                      msg->mac[1],
-                      msg->mac[2],
-                      msg->mac[3],
-                      msg->mac[4],
-                      msg->mac[5]);
-        
         strcpy(&p[i],device);
         i += strlen(device);
         sprintf(&p[i],"%02x%02x%02x%02x%02x%02x",msg->mac[0],msg->mac[1],msg->mac[2],msg->mac[3],msg->mac[4],msg->mac[5]);
@@ -158,7 +170,6 @@ static int32_t dev_msg_to_json(char *json,int32_t size,slv_msg_lst_t *dev_msg[],
         i += int_bits(msg->timestamp);
 
         p[i++] = '}';
-        //p[i++] = ',';
         cnt++;
     }
     p[i++] = ']';
@@ -191,14 +202,13 @@ int32_t get_dev_data(void * buf,int32_t size,slv_msg_lst_t *dev_node[], int32_t 
     }
     return ((uint8_t *)p_dev - (uint8_t *)buf);
 }
-//for test
-#define TEST 0
+
 #if TEST
 static slv_msg_lst_t cache[] = 
 {
     {.upload_time=0,
      .update_flag=0,
-     .data.mac={0x11,0x22,0x33,0x44,0x55,0x66},
+     .data.mac={0x22,0x22,0x22,0x22,0x22,0x22},
      .data.temp = 253,
      .data.vol=4036,
      .data.rssi=105,
@@ -206,7 +216,7 @@ static slv_msg_lst_t cache[] =
     },
     {.upload_time=0,
      .update_flag=0,
-     .data.mac={0x77,0x88,0x99,0x00,0x12,0x89},
+     .data.mac={0x22,0x22,0x22,0x22,0x22,0x22},
      .data.temp = 183,
      .data.vol=3936,
      .data.rssi=124,
@@ -227,17 +237,17 @@ static int32_t test_cache_read_list_by_time(slv_msg_lst_t *node[], int32_t numbe
         node[i] = &cache[i];
         node[i]->update_flag = 1;
         node[i]->upload_time = hal_rtc_get_time();
-        DBG_D("Dgt:buf[i].mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                      node[i]->data.mac[0],
-                      node[i]->data.mac[1],
-                      node[i]->data.mac[2],
-                      node[i]->data.mac[3],
-                      node[i]->data.mac[4],
-                      node[i]->data.mac[5]);
-        DBG_D("Dgt: buf[%d].temp=%d",i,node[i]->data.temp);
-        DBG_D("Dgt: buf[%d].vol=%d,",i,node[i]->data.vol);
-        DBG_D("Dgt: buf[%d].rssi=%d",i,node[i]->data.rssi);
-        DBG_D("Dgt: buf[%d].time=%d",i,node[i]->data.timestamp);
+        // DBG_D("Dgt:buf[i].mac=%02x:%02x:%02x:%02x:%02x:%02x",
+        //               node[i]->data.mac[0],
+        //               node[i]->data.mac[1],
+        //               node[i]->data.mac[2],
+        //               node[i]->data.mac[3],
+        //               node[i]->data.mac[4],
+        //               node[i]->data.mac[5]);
+        // DBG_D("Dgt: buf[%d].temp=%d",i,node[i]->data.temp);
+        // DBG_D("Dgt: buf[%d].vol=%d,",i,node[i]->data.vol);
+        // DBG_D("Dgt: buf[%d].rssi=%d",i,node[i]->data.rssi);
+        // DBG_D("Dgt: buf[%d].time=%d",i,node[i]->data.timestamp);
     }
     return i;
 }
@@ -249,8 +259,9 @@ void data_mgt_task_main(void *arg)
     int32_t records = 0;
 
     static slv_msg_lst_t *node[XFER_SLV_DEFAULT_NUM];
-    static slv_msg_t slv;
+    static slv_msg_t dev;
     static msg_t *p_msg = NULL;
+    TickType_t upload_time = 0;
     //static xfer_pkg_t *xp_buf = NULL;
     //static slv_msg_t *dev_msgs = NULL;
 
@@ -258,52 +269,51 @@ void data_mgt_task_main(void *arg)
     if(!p_msg)
         {DBG_E("Dgt task startup fail at malloc p_msg.");return;}
 
-    msg_queue = xQueueCreate(XFER_SLV_DEFAULT_NUM,sizeof(slv_msg_t));
+    msg_queue = xQueueCreate(10,sizeof(slv_msg_t));
     if(!msg_queue)
         {DBG_E("Dgt task startup faile at create queue.");return;}
     DBG_I("Dgt task startup ok.");
+    vTaskDelay(2000);
     while(1)
     {
         memset(p_msg, 0, XFER_JSON_MAX_CHAR_LEN);
         p_msg->len = 0;
+        while(xQueueReceive(msg_queue,&dev,pdMS_TO_TICKS(10000)) == pdPASS)
+        {
+            // DBG_D("Dgt: recieved device msg");
+            // DBG_D("Dgt: recv: %02x:%02x:%02x:%02x:%02x:%02x:",
+            //     dev.mac[0],dev.mac[1],dev.mac[2],dev.mac[3],dev.mac[4],dev.mac[5]);
+            // DBG_D("Dgt: recv dev temp = %d",dev.temp);
+            // DBG_D("Dgt: recv dev rssi = %d",dev.rssi);
+            cache_insert_list(&dev);
+        }
 #if TEST
-        records = test_cache_read_list_by_time(node,2);
-        DBG_D("Dgt: read records = %d",records);
-#else
-        records = cache_read_list_by_time(node,XFER_SLV_DEFAULT_NUM);
+        cache_insert_dev_for_test();
 #endif //TEST
+        records = cache_read_list_by_time(node,XFER_SLV_DEFAULT_NUM);
+        DBG_I("Dgt: read out <%d> devices",records);
         if(records > 0 && records <= XFER_SLV_DEFAULT_NUM)
         {
 #if __HTTPS_ENABLE__
-            //DBG_D("Dgt Befor,json len = %d,p_msg->data = 0x%x,\r\n",p_msg->len,p_msg->data);
             p_msg->len = router_msg_head_to_json((char *)p_msg->data,XFER_JSON_MAX_CHAR_LEN-sizeof(p_msg->len));
-            //DBG_D("Dgt json xfer: %s\r\n",p_msg->data);
             p_msg->len += dev_msg_to_json((char *)&p_msg->data[p_msg->len],XFER_JSON_MAX_CHAR_LEN-sizeof(p_msg->len)-p_msg->len,node,records);
             p_msg->len += router_msg_end_to_json((char *)&p_msg->data[p_msg->len],XFER_JSON_MAX_CHAR_LEN-sizeof(p_msg->len)-p_msg->len);
-            DBG_D("Dgt add json over: %s\r\n",p_msg->data);
-            //vTaskDelay(100000);
-#else
-            p_msg->len = update_router_msg((router_msg_t *)p_msg->data);
-            p_msg->len += get_dev_data((slv_msg_t *)&p_msg->data[p_msg->len],XFER_JSON_MAX_CHAR_LEN-sizeof(p_msg->len)-p_msg->len,node,records);
-            DBG_D("Dgt hex xfer:",p_msg->data);
-            NRF_LOG_HEXDUMP_INFO(p_msg->data,p_msg->len);
 #endif
+            DBG_D("%s",p_msg->data);
+            DBG_I("Dgt: uploading...");
             //NRF_LOG_HEXDUMP_INFO(p_msg,p_msg->len+4);
+            upload_time = xTaskGetTickCount();
             if(send_msg_to_server(p_msg))
             //if(0)
             {
-                DBG_D("Dgt: Send data to net queue success\r\n");
+                DBG_I("Dgt: upload data success within %dS\r\n",(xTaskGetTickCount()-upload_time)/1000);
                 cache_list_update_upload_state(node,records);
             }
             else
             {
-                DBG_W("Dgt:Upload data fail!\r\n");
+                DBG_W("Dgt:Upload data fail with timeout %d!",(xTaskGetTickCount()-upload_time)/1000);
             }
             
-        }
-        while(xQueueReceive(msg_queue,&slv,pdMS_TO_TICKS(10000)) == pdPASS)
-        {
-            cache_insert_list(&slv);
         }
     }
 }
@@ -316,6 +326,6 @@ void create_data_mgt_task(void)
 }
 void send_msg_to_cache_queue(slv_msg_t *slv)
 {
-    xQueueSendToBack(msg_queue,slv,1);
+    xQueueSend(msg_queue, (void *)slv, (TickType_t)1);
 }
 //end
