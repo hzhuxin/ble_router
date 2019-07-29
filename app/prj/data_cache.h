@@ -15,6 +15,7 @@ typedef struct
     int16_t vol;
     int16_t rssi;
     int32_t timestamp;
+    int32_t mill_secs;
 }slv_msg_t;
 
 typedef struct slv_msg_lsg

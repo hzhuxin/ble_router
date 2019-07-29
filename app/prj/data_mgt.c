@@ -56,7 +56,7 @@ static int32_t int_bits(int32_t dt)
     }
     return i;
 }
-/*static int32_t uint_bits(uint32_t dt)
+static int32_t uint_bits(uint32_t dt)
 {
     int32_t i=0;
     while(dt)
@@ -65,7 +65,7 @@ static int32_t int_bits(int32_t dt)
         i++;
     }
     return i;
-}*/
+}
 #if TEST
 static const router_msg_t router  = 
 {
@@ -94,6 +94,7 @@ static int32_t router_msg_head_to_json(char *json,int32_t size)
         return -1;
     }
     char *p = json;
+    //uint32_t mses;
     router_msg_t router;
     update_router_msg(&router);
     router_msg_t *msg = &router;
@@ -103,11 +104,14 @@ static int32_t router_msg_head_to_json(char *json,int32_t size)
     p += 12;
     strcpy(p,timestamp);
     p += strlen(timestamp);
-    sprintf(p,"%d",msg->timestamp);
+    sprintf(p,"%u",msg->timestamp);
     p += int_bits(msg->timestamp);
+    //mses = xTaskGetTickCount() % 1000;
+    sprintf(p,"%u",(xTaskGetTickCount() % 1000));
+    p += 3;
     strcpy(p,vol);
     p += strlen(vol);
-    sprintf(p,"%d",msg->vol);
+    sprintf(p,"%u",msg->vol);
     p += int_bits(msg->vol);
     strcpy(p,devices);
     p += strlen(devices);
@@ -156,7 +160,7 @@ static int32_t dev_msg_to_json(char *json,int32_t size,slv_msg_lst_t *dev_msg[],
         //battary
         strcpy(&p[i],vol);
         i += strlen(vol);
-        sprintf(&p[i],"%d",msg->vol);
+        sprintf(&p[i],"%u",msg->vol);
         i += int_bits(msg->vol);
         //rssi
         strcpy(&p[i],rssi);
@@ -166,8 +170,11 @@ static int32_t dev_msg_to_json(char *json,int32_t size,slv_msg_lst_t *dev_msg[],
         //timestamp
         strcpy(&p[i],timestamp2);
         i += strlen(timestamp2);
-        sprintf(&p[i],"%d",msg->timestamp);
-        i += int_bits(msg->timestamp);
+        sprintf(&p[i],"%u",msg->timestamp);
+        i += uint_bits(msg->timestamp);
+        //mill second
+        sprintf(&p[i],"%u",msg->mill_secs%1000);
+        i += uint_bits(msg->mill_secs%1000);
 
         p[i++] = '}';
         cnt++;
