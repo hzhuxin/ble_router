@@ -171,10 +171,12 @@ static int32_t dev_msg_to_json(char *json,int32_t size,slv_msg_lst_t *dev_msg[],
         strcpy(&p[i],timestamp2);
         i += strlen(timestamp2);
         sprintf(&p[i],"%u",msg->timestamp);
-        i += uint_bits(msg->timestamp);
+        //i += uint_bits(msg->timestamp);
+        i += 10;
         //mill second
-        sprintf(&p[i],"%u",msg->mill_secs%1000);
-        i += uint_bits(msg->mill_secs%1000);
+        sprintf(&p[i],"%03u",msg->mill_secs%1000);
+        //i += uint_bits(msg->mill_secs%1000);
+        i += 3;
 
         p[i++] = '}';
         cnt++;
