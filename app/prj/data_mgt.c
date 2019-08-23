@@ -150,7 +150,7 @@ static int32_t dev_msg_to_json(char *json,int32_t size,slv_msg_lst_t *dev_msg[],
         //device mac
         strcpy(&p[i],device);
         i += strlen(device);
-        sprintf(&p[i],"%02x%02x%02x%02x%02x%02x",msg->mac[0],msg->mac[1],msg->mac[2],msg->mac[3],msg->mac[4],msg->mac[5]);
+        sprintf(&p[i],"%02x%02x%02x%02x%02x%02x",msg->mac[5],msg->mac[4],msg->mac[3],msg->mac[2],msg->mac[1],msg->mac[0]);
         i += 12;
         //temptrue
         strcpy(&p[i],temp);
