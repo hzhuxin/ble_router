@@ -1,6 +1,5 @@
 *.windows
 *.out
-*.hex
 *.map
 *.in
 *.bin

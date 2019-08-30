@@ -457,6 +457,12 @@ static void save_device(void *p_content)
     slv_adv_t *adv = (slv_adv_t *)(adv_data->p_data+5);
     slv_msg_t dev;
     memcpy(dev.mac, target->peer_addr->addr,6);
+    // dev.mac[0] = target->peer_addr->addr[5];
+    // dev.mac[1] = target->peer_addr->addr[4];
+    // dev.mac[2] = target->peer_addr->addr[3];
+    // dev.mac[3] = target->peer_addr->addr[2];
+    // dev.mac[4] = target->peer_addr->addr[1];
+    // dev.mac[5] = target->peer_addr->addr[0];
     dev.temp = adv->temp;
     dev.rssi = target->rssi;
     dev.vol = 4230;
